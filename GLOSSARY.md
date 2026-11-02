@@ -35,3 +35,7 @@ _Avoid_: Assistant, bot, copilot
 **Audio Overview**:
 A Studio output in which two voices discuss the notebook's sources like a podcast.
 _Avoid_: Podcast, audio summary
+
+**Visitor**:
+The anonymous person who owns notebooks, recognized again by a cookie instead of an account.
+_Avoid_: User, session, account
