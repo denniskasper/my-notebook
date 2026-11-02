@@ -1,0 +1,4 @@
+minimumReleaseAgeExclude:
+  - '@ai-hero/sandcastle@0.13.0'
+allowBuilds:
+  esbuild: true

@@ -1,0 +1,17 @@
+{
+  "name": "my-notebook",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.15.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "devDependencies": {
+    "@ai-hero/sandcastle": "0.13.0",
+    "tsx": "^4.23.15",
+    "zod": "^4.6.7"
+  },
+  "scripts": {
+    "sandcastle": "tsx .sandcastle/main.ts"
+  }
+}
