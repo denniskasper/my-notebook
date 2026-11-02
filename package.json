@@ -8,10 +8,14 @@
   },
   "devDependencies": {
     "@ai-hero/sandcastle": "0.13.0",
+    "@standard-schema/spec": "^1.1.0",
+    "@types/node": "^24.19.2",
     "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
     "zod": "^4.6.7"
   },
   "scripts": {
-    "sandcastle": "tsx .sandcastle/main.ts"
+    "sandcastle": "tsx .sandcastle/main.ts",
+    "typecheck:sandcastle": "tsc -p .sandcastle"
   }
 }
