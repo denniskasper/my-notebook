@@ -158,15 +158,28 @@ svg{flex:none}
 .C .rail .sp{flex:1}
 .C .panel{border-right:1px solid var(--line)}
 .C .desk{min-width:0;background:var(--bg)}
-.C .doctabs{display:flex;height:38px;border-bottom:1px solid var(--line);overflow:hidden}
-.C .doctab{display:flex;align-items:center;gap:7px;padding:0 12px;border-right:1px solid var(--line);color:var(--muted);max-width:240px;white-space:nowrap;cursor:pointer}
-.C .doctab span{overflow:hidden;text-overflow:ellipsis}
-.C .doctab.on{color:var(--text);background:var(--panel);box-shadow:inset 0 -1px 0 var(--hl)}
+.doctabs{display:flex;height:38px;border-bottom:1px solid var(--line);overflow:hidden}
+.doctab{display:flex;align-items:center;gap:7px;padding:0 12px;border-right:1px solid var(--line);color:var(--muted);max-width:240px;white-space:nowrap;cursor:pointer}
+.doctab span{overflow:hidden;text-overflow:ellipsis}
+.doctab.on{color:var(--text);background:var(--panel);box-shadow:inset 0 -1px 0 var(--hl)}
 .C .desk .reader{margin:0 auto;padding-top:34px}
 .C .talk{border-left:1px solid var(--line);background:var(--panel)}
 .C .talk .thread{padding:18px 16px 24px;gap:18px}
 .C .talk .composer{padding:0 12px 12px}
 .C .talk .msg-a{font-size:13px}
+
+/* Variant D: B shell with C's tabbed reader in the drawer */
+.D .drawer{width:460px}
+.D .doctabs{background:var(--bg);flex:none}
+.D .doctab{padding:0 4px 0 10px;flex:0 1 190px;min-width:0}
+.doctab>.muted{flex:none;display:inline-flex}
+.D .doctab>span:nth-child(2){flex:1;min-width:0}
+.D .doctab.on{background:var(--panel)}
+.D .dx{display:grid;place-items:center;width:18px;height:18px;border-radius:4px;color:var(--faint);margin-left:2px}
+.D .dx:hover{background:var(--hover);color:var(--text)}
+.D .drawer .reader{padding:20px 24px 60px;font-size:15px}
+.D .tabs .n{color:var(--faint);margin-left:4px}
+.D .empty{padding:28px 24px;color:var(--muted);line-height:1.55}
 
 /* prototype switcher: deliberately not part of the design */
 #sw{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);display:flex;align-items:center;gap:4px;background:#f3f4f6;color:#111827;border-radius:999px;padding:4px;box-shadow:0 6px 24px rgba(0,0,0,.5);font:500 12.5px system-ui,sans-serif;z-index:99}
@@ -179,7 +192,7 @@ svg{flex:none}
 <div id="app"></div>
 <div id="sw"><button data-sw="-1" aria-label="Vorherige Variante">‹</button><span id="swl"></span><button data-sw="1" aria-label="Nächste Variante">›</button></div>
 <script>
-const VARIANTS = {A:"Drei Spalten", B:"Notebook-Seitenleiste", C:"Lesetisch"};
+const VARIANTS = {A:"Drei Spalten", B:"Notebook-Seitenleiste", C:"Lesetisch", D:"Final: B mit Lese-Tabs"};
 
 const I = {
   pdf:'<path d="M4 1.5h5L12.5 5v9.5h-8.5z" fill="none" stroke="currentColor"/><path d="M9 1.5V5h3.5" fill="none" stroke="currentColor"/>',
@@ -252,16 +265,16 @@ const STUDIO = [
 ];
 
 const S = {
-  variant: new URLSearchParams(location.search).get("variant") || "A",
+  variant: new URLSearchParams(location.search).get("variant") || "D",
   cite: null,          // number of active citation
   openSrc: null,       // id of source opened in a reader
   mode: "agent",
   menu: false,
-  drawer: "studio",    // B
+  drawer: (new URLSearchParams(location.search).get("variant")||"D")==="D" ? "source" : "studio",
   rail: "sources",     // C
   docs: ["s1","s2"],   // C open document tabs
 };
-if(!VARIANTS[S.variant]) S.variant = "A";
+if(!VARIANTS[S.variant]) S.variant = "D";
 const set = p => { Object.assign(S,p); render(); };
 
 /* ---------- shared pieces ---------- */
@@ -336,9 +349,15 @@ function A(){
 }
 
 /* ---------- Variant B: notebook sidebar + drawer ---------- */
-function B(){
-  const tab = (k,l) => `<button class="${S.drawer===k?"on":""}" data-drawer="${k}">${l}</button>`;
-  const drawerBody = S.drawer==="source" && S.openSrc ? reader(S.openSrc)
+function B(tabbed=false){
+  const tab = (k,l,n) => `<button class="${S.drawer===k?"on":""}" data-drawer="${k}">${l}${n?`<span class="n">${n}</span>`:""}</button>`;
+  const active = S.docs.includes(S.openSrc) ? S.openSrc : S.docs[0];
+  const tabbedSource = () => S.docs.length
+    ? `<div class="doctabs">${S.docs.map(id=>{const s=SOURCES.find(x=>x.id===id);return `<div class="doctab ${id===active?"on":""}" data-open="${id}" title="${s.title}"><span class="muted">${typeIc(s.type)}</span><span>${s.title}</span><button class="dx" data-closedoc="${id}" aria-label="Tab schließen">${ic("x",10)}</button></div>`}).join("")}</div>
+       <div class="scroll" style="flex:1">${reader(active)}</div>`
+    : `<div class="empty">Keine Quelle geöffnet. Klicke auf ein Zitat in einer Antwort oder auf eine Quelle in der Seitenleiste.</div>`;
+  const drawerBody = tabbed && S.drawer==="source" ? null
+    : S.drawer==="source" && S.openSrc ? reader(S.openSrc)
     : S.drawer==="notes" ? notes() : S.drawer==="studio" ? studio()
     : `<div style="padding:16px" class="muted">Klicke auf ein Zitat oder eine Quelle.</div>`;
   return `<aside class="side col">
@@ -358,8 +377,8 @@ function B(){
       <div class="scroll" style="flex:1;padding:0 24px">${thread()}</div>${composer()}
     </main>
     <aside class="drawer col ${S.drawer?"":"closed"}">
-      <div class="tabs">${tab("source","Quelle")}${tab("studio","Studio")}${tab("notes","Notizen")}<span style="flex:1"></span><button class="iconbtn" data-drawer="" aria-label="Schließen">${ic("x")}</button></div>
-      <div class="scroll" style="flex:1">${drawerBody}</div>
+      <div class="tabs">${tab("source",tabbed?"Quellen":"Quelle",tabbed?S.docs.length:0)}${tab("studio","Studio")}${tab("notes","Notizen")}<span style="flex:1"></span><button class="iconbtn" data-drawer="" aria-label="Schließen">${ic("x")}</button></div>
+      ${drawerBody===null?tabbedSource():`<div class="scroll" style="flex:1">${drawerBody}</div>`}
     </aside>`;
 }
 
@@ -385,10 +404,12 @@ function C(){
     </section>`;
 }
 
+const D = () => B(true);
+
 function render(){
   const app = document.getElementById("app");
-  app.className = S.variant;
-  app.innerHTML = ({A,B,C})[S.variant]();
+  app.className = S.variant==="D" ? "B D" : S.variant;
+  app.innerHTML = ({A,B:()=>B(),C,D})[S.variant]();
   document.getElementById("swl").textContent = `${S.variant} (${VARIANTS[S.variant]})`;
   const hot = document.getElementById("hot");
   if(hot) hot.scrollIntoView({block:"center", behavior:"smooth"});
@@ -397,21 +418,26 @@ function render(){
 function openCite(n){
   const [src] = CITES[n];
   const p = {cite:n, openSrc:src};
-  if(S.variant==="B") p.drawer = "source";
-  if(S.variant==="C" && !S.docs.includes(src)) p.docs = [...S.docs, src];
+  if(S.variant==="B"||S.variant==="D") p.drawer = "source";
+  if((S.variant==="C"||S.variant==="D") && !S.docs.includes(src)) p.docs = [...S.docs, src];
   set(p);
 }
 
 document.addEventListener("click", e => {
-  const t = e.target.closest("[data-cite],[data-open],[data-close],[data-mode],[data-menu],[data-drawer],[data-toggle],[data-rail],[data-sw]");
+  const t = e.target.closest("[data-closedoc],[data-cite],[data-open],[data-close],[data-mode],[data-menu],[data-drawer],[data-toggle],[data-rail],[data-sw]");
   if(!t){ if(S.menu) set({menu:false}); return; }
   const d = t.dataset;
   if(d.sw) return go(+d.sw);
+  if(d.closedoc){
+    const docs = S.docs.filter(x=>x!==d.closedoc);
+    const gone = S.openSrc===d.closedoc;
+    return set({docs, openSrc: gone ? (docs[0]||null) : S.openSrc, cite: gone ? null : S.cite});
+  }
   if(d.cite) return openCite(+d.cite);
   if(d.open!==undefined){
     const p = {openSrc:d.open, cite:null};
-    if(S.variant==="B") p.drawer = "source";
-    if(S.variant==="C" && !S.docs.includes(d.open)) p.docs = [...S.docs, d.open];
+    if(S.variant==="B"||S.variant==="D") p.drawer = "source";
+    if((S.variant==="C"||S.variant==="D") && !S.docs.includes(d.open)) p.docs = [...S.docs, d.open];
     return set(p);
   }
   if(d.close!==undefined) return set({openSrc:null, cite:null});
@@ -431,7 +457,7 @@ function go(step){
   const keys = Object.keys(VARIANTS);
   const v = keys[(keys.indexOf(S.variant)+step+keys.length)%keys.length];
   try{ const u = new URL(location); u.searchParams.set("variant", v); history.replaceState(null,"",u); }catch(_){}
-  set({variant:v, openSrc:null, cite:null, menu:false});
+  set({variant:v, openSrc:null, cite:null, menu:false, docs:["s1","s2"], drawer: v==="D"?"source":"studio"});
 }
 render();
 const q = new URLSearchParams(location.search).get("cite"); if(q) openCite(+q);
