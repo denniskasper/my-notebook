@@ -1,0 +1,440 @@
+<!doctype html>
+<!--
+  PROTOTYPE, throw away. Answers wayfinder ticket "Layout and visual language" (#7).
+  Three layout variants of the notebook screen, switchable via ?variant=A|B|C
+  and the floating bar at the bottom (or ← / →). Static demo data, no backend.
+  Run: open this file in a browser.
+-->
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prototyp: Layout</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#141619; --panel:#191c20; --raise:#1f2328; --hover:#252a30;
+  --line:#2a2f36; --line-soft:#21252b;
+  --text:#dfe3e8; --muted:#8b939e; --faint:#5f6772;
+  --hl:#e6c35c; --hl-bg:rgba(230,195,92,.15); --hl-line:rgba(230,195,92,.45);
+  --agent:#9aa8ff; --agent-bg:rgba(154,168,255,.09); --agent-line:rgba(154,168,255,.35);
+  --ok:#7fc8a0;
+  --ui:"Instrument Sans",system-ui,sans-serif;
+  --read:"Newsreader",Georgia,serif;
+  --r:6px;
+}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--text);font:400 13px/1.45 var(--ui);-webkit-font-smoothing:antialiased;overflow:hidden}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+:focus-visible{outline:2px solid var(--hl);outline-offset:1px;border-radius:4px}
+svg{flex:none}
+#app{height:100vh;display:grid}
+
+/* shared pieces */
+.ph{display:flex;align-items:center;gap:8px;height:38px;padding:0 12px;border-bottom:1px solid var(--line);font-weight:500;flex:none}
+.ph .grow{flex:1}
+.ph .count{color:var(--faint);font-weight:400}
+.iconbtn{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:5px;color:var(--muted)}
+.iconbtn:hover{background:var(--hover);color:var(--text)}
+.scroll{overflow:auto;min-height:0}
+.scroll::-webkit-scrollbar{width:8px}.scroll::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px}
+.col{display:flex;flex-direction:column;min-height:0;min-width:0}
+.muted{color:var(--muted)} .faint{color:var(--faint)}
+
+.src{display:flex;align-items:center;gap:9px;padding:6px 12px;border-radius:5px;cursor:pointer}
+.src:hover{background:var(--hover)}
+.src .t{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.src .k{color:var(--faint);font-size:11.5px}
+.src.off .t{color:var(--faint)}
+.src.active{background:var(--raise)}
+.check{width:14px;height:14px;border:1px solid var(--line);border-radius:3px;display:grid;place-items:center;flex:none}
+.check.on{background:var(--text);border-color:var(--text);color:var(--bg)}
+
+.thread{display:flex;flex-direction:column;gap:22px;padding:24px 0 32px;max-width:700px;width:100%;margin:0 auto}
+.msg-u{align-self:flex-end;max-width:82%;background:var(--raise);border:1px solid var(--line);padding:8px 12px;border-radius:10px 10px 3px 10px}
+.msg-a{line-height:1.6;font-size:13.5px}
+.msg-a p+p{margin-top:8px}
+.msg-tools{display:flex;gap:4px;margin-top:8px}
+.chipbtn{display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 8px;border:1px solid var(--line);border-radius:5px;color:var(--muted);font-size:12px}
+.chipbtn:hover{color:var(--text);background:var(--hover)}
+.cite{display:inline-grid;place-items:center;min-width:17px;height:16px;padding:0 4px;margin:0 1px;border:1px solid var(--hl-line);border-radius:4px;color:var(--hl);font-size:10.5px;font-weight:600;vertical-align:1px;cursor:pointer;line-height:1}
+.cite:hover,.cite.on{background:var(--hl);color:#1a1606;border-color:var(--hl)}
+
+.agent{border-left:2px solid var(--agent-line);padding-left:14px}
+.agent-h{display:flex;align-items:center;gap:7px;color:var(--agent);font-weight:500;margin-bottom:10px}
+.step{display:grid;grid-template-columns:16px 1fr;gap:9px;padding:4px 0}
+.step .dot{width:16px;height:16px;border-radius:50%;display:grid;place-items:center;margin-top:1px}
+.step.done .dot{color:var(--ok)}
+.step.run .dot{border:1.5px solid var(--agent);border-right-color:transparent;animation:spin 1s linear infinite}
+.step .d{color:var(--muted);font-size:12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.step.run .dot{animation:none}}
+
+.composer{padding:0 20px 18px;flex:none}
+.composer-box{max-width:700px;margin:0 auto;border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:10px 10px 8px}
+.composer-box.agent-on{border-color:var(--agent-line);box-shadow:0 0 0 3px var(--agent-bg)}
+.composer textarea{width:100%;background:none;border:0;resize:none;color:var(--text);font:inherit;font-size:13.5px;outline:none;height:42px}
+.composer textarea::placeholder{color:var(--faint)}
+.composer-row{display:flex;align-items:center;gap:8px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;padding:2px;gap:2px}
+.seg button{height:22px;padding:0 9px;border-radius:4px;color:var(--muted);font-size:12px}
+.seg button.on{background:var(--raise);color:var(--text)}
+.seg button.on.ag{background:var(--agent-bg);color:var(--agent)}
+.send{margin-left:auto;width:28px;height:28px;border-radius:6px;background:var(--text);color:var(--bg);display:grid;place-items:center}
+.ctx{font-size:11.5px;color:var(--faint)}
+
+.studio{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:10px}
+.tile{border:1px solid var(--line);border-radius:var(--r);padding:9px 10px;text-align:left;display:flex;flex-direction:column;gap:3px;min-height:58px}
+.tile:hover{background:var(--hover)}
+.tile .n{font-weight:500;display:flex;align-items:center;gap:6px}
+.tile .s{font-size:11.5px;color:var(--faint)}
+.tile.ready .s{color:var(--muted)}
+.tile.wide{grid-column:1/-1}
+.player{display:flex;align-items:center;gap:8px;margin-top:6px}
+.player .bar{flex:1;height:3px;background:var(--line);border-radius:2px;position:relative}
+.player .bar i{position:absolute;inset:0 62% 0 0;background:var(--text);border-radius:2px}
+.play{width:22px;height:22px;border-radius:50%;background:var(--text);color:var(--bg);display:grid;place-items:center}
+
+.note{padding:9px 12px;border-bottom:1px solid var(--line-soft);cursor:pointer}
+.note:hover{background:var(--hover)}
+.note .n{font-weight:500}
+.note .s{font-size:12px;color:var(--muted);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-top:2px}
+.note .o{font-size:11px;color:var(--faint);margin-top:3px}
+.note .o.ag{color:var(--agent)}
+
+.reader{font:400 15.5px/1.62 var(--read);color:#cfd3d8;padding:22px 28px 60px;max-width:68ch}
+.reader h2{font:500 21px/1.25 var(--read);color:var(--text);margin-bottom:4px}
+.reader .meta{font:400 12px var(--ui);color:var(--faint);margin-bottom:22px}
+.reader p{margin-bottom:14px}
+.reader mark{background:var(--hl-bg);color:var(--text);padding:1px 3px;border-radius:2px;-webkit-box-decoration-break:clone;box-decoration-break:clone;border-bottom:1px solid var(--hl-line)}
+.nw{white-space:nowrap}
+.reader .pg{font:400 11px var(--ui);color:var(--faint);margin:18px 0 8px}
+.summary{font-size:12.5px;color:var(--muted);border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;margin:0 0 20px;font-family:var(--ui);line-height:1.5}
+
+.budget{font-size:11.5px;color:var(--faint);display:flex;align-items:center;gap:8px}
+.budget .m{flex:1;height:3px;background:var(--line);border-radius:2px;position:relative;min-width:40px}
+.budget .m i{position:absolute;inset:0 11% 0 0;background:var(--muted);border-radius:2px}
+
+.nb{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:5px;cursor:pointer;color:var(--muted)}
+.nb:hover{background:var(--hover);color:var(--text)}
+.nb.on{color:var(--text)}
+.nb .c{margin-left:auto;font-size:11.5px;color:var(--faint)}
+
+/* Variant A */
+.A{grid-template-rows:42px 1fr}
+.A .top{display:flex;align-items:center;gap:10px;padding:0 12px;border-bottom:1px solid var(--line)}
+.A .nbswitch{display:flex;align-items:center;gap:6px;height:28px;padding:0 8px;border-radius:6px;font-weight:600;font-size:14px}
+.A .nbswitch:hover{background:var(--hover)}
+.A .body{display:grid;grid-template-columns:300px 1fr 330px;min-height:0}
+.A .body>.col{border-right:1px solid var(--line)}
+.A .body>.col:last-child{border-right:0}
+.A .menu{position:absolute;top:38px;left:10px;width:280px;background:var(--raise);border:1px solid var(--line);border-radius:8px;padding:5px;z-index:5;box-shadow:0 12px 30px rgba(0,0,0,.35)}
+
+/* Variant B */
+.B{grid-template-columns:250px 1fr auto}
+.B .side{background:var(--panel);border-right:1px solid var(--line)}
+.B .brand{height:42px;display:flex;align-items:center;gap:8px;padding:0 14px;font-weight:600}
+.B .search{margin:0 10px 8px;height:28px;border:1px solid var(--line);border-radius:6px;display:flex;align-items:center;gap:7px;padding:0 9px;color:var(--faint)}
+.B .group{padding:10px 14px 4px;color:var(--faint);font-size:11.5px}
+.B .tree{margin-left:18px;border-left:1px solid var(--line);padding-left:4px;margin-bottom:6px}
+.B .tree .src{padding:4px 8px}
+.B .main{min-width:0}
+.B .head{height:42px;display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid var(--line)}
+.B .head h1{font-size:14px;font-weight:600}
+.B .drawer{width:400px;border-left:1px solid var(--line);background:var(--panel)}
+.B .drawer.closed{width:0;overflow:hidden;border:0}
+.B .tabs{display:flex;gap:2px;padding:0 8px;height:42px;align-items:center;border-bottom:1px solid var(--line)}
+.B .tabs button{height:26px;padding:0 10px;border-radius:5px;color:var(--muted)}
+.B .tabs button.on{background:var(--raise);color:var(--text)}
+
+/* Variant C */
+.C{grid-template-columns:48px 240px 1fr 420px}
+.C .rail{border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 0;background:var(--panel)}
+.C .rail button{width:34px;height:34px;border-radius:7px;display:grid;place-items:center;color:var(--faint)}
+.C .rail button:hover{color:var(--text);background:var(--hover)}
+.C .rail button.on{color:var(--text);background:var(--raise)}
+.C .rail .sp{flex:1}
+.C .panel{border-right:1px solid var(--line)}
+.C .desk{min-width:0;background:var(--bg)}
+.C .doctabs{display:flex;height:38px;border-bottom:1px solid var(--line);overflow:hidden}
+.C .doctab{display:flex;align-items:center;gap:7px;padding:0 12px;border-right:1px solid var(--line);color:var(--muted);max-width:240px;white-space:nowrap;cursor:pointer}
+.C .doctab span{overflow:hidden;text-overflow:ellipsis}
+.C .doctab.on{color:var(--text);background:var(--panel);box-shadow:inset 0 -1px 0 var(--hl)}
+.C .desk .reader{margin:0 auto;padding-top:34px}
+.C .talk{border-left:1px solid var(--line);background:var(--panel)}
+.C .talk .thread{padding:18px 16px 24px;gap:18px}
+.C .talk .composer{padding:0 12px 12px}
+.C .talk .msg-a{font-size:13px}
+
+/* prototype switcher: deliberately not part of the design */
+#sw{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);display:flex;align-items:center;gap:4px;background:#f3f4f6;color:#111827;border-radius:999px;padding:4px;box-shadow:0 6px 24px rgba(0,0,0,.5);font:500 12.5px system-ui,sans-serif;z-index:99}
+#sw button{width:28px;height:28px;border-radius:50%;color:#111827;font-size:15px}
+#sw button:hover{background:#e5e7eb}
+#sw span{padding:0 8px;text-align:center}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="sw"><button data-sw="-1" aria-label="Vorherige Variante">‹</button><span id="swl"></span><button data-sw="1" aria-label="Nächste Variante">›</button></div>
+<script>
+const VARIANTS = {A:"Drei Spalten", B:"Notebook-Seitenleiste", C:"Lesetisch"};
+
+const I = {
+  pdf:'<path d="M4 1.5h5L12.5 5v9.5h-8.5z" fill="none" stroke="currentColor"/><path d="M9 1.5V5h3.5" fill="none" stroke="currentColor"/>',
+  web:'<circle cx="8" cy="8" r="6" fill="none" stroke="currentColor"/><path d="M2 8h12M8 2c2 2 2 10 0 12M8 2c-2 2-2 10 0 12" fill="none" stroke="currentColor"/>',
+  text:'<path d="M3 4h10M3 7h10M3 10h7M3 13h5" stroke="currentColor"/>',
+  plus:'<path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.4"/>',
+  down:'<path d="M4.5 6.5 8 10l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.4"/>',
+  left:'<path d="M10 3.5 5.5 8l4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.4"/>',
+  x:'<path d="m4 4 8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.3"/>',
+  ok:'<path d="m3.5 8.5 3 3 6-7" fill="none" stroke="currentColor" stroke-width="1.6"/>',
+  send:'<path d="M8 13V3.5M4 7.5 8 3.5l4 4" fill="none" stroke="currentColor" stroke-width="1.6"/>',
+  play:'<path d="M5.5 3.5v9l7-4.5z" fill="currentColor"/>',
+  book:'<path d="M2.5 3h4.5c.8 0 1 .5 1 1v9c0-.6-.4-1-1-1H2.5zM13.5 3H9c-.8 0-1 .5-1 1v9c0-.6.4-1 1-1h4.5z" fill="none" stroke="currentColor"/>',
+  stack:'<path d="M3 3h10v3H3zM3 7.5h10v3H3zM3 12h10" fill="none" stroke="currentColor"/>',
+  note:'<path d="M3 2.5h10v8l-3 3H3z M10 13.5v-3h3" fill="none" stroke="currentColor"/>',
+  spark:'<path d="M8 2v3M8 11v3M2 8h3M11 8h3M4 4l2 2M10 10l2 2M12 4l-2 2M6 10l-2 2" stroke="currentColor"/>',
+  search:'<circle cx="7" cy="7" r="4.5" fill="none" stroke="currentColor"/><path d="m10.5 10.5 3 3" stroke="currentColor"/>',
+  panel:'<rect x="2" y="2.5" width="12" height="11" rx="1.5" fill="none" stroke="currentColor"/><path d="M10 2.5v11" stroke="currentColor"/>',
+  gear:'<circle cx="8" cy="8" r="2.2" fill="none" stroke="currentColor"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M12.6 3.4l-1.4 1.4M4.8 11.2l-1.4 1.4" stroke="currentColor"/>',
+};
+const ic = (n, s=14) => `<svg width="${s}" height="${s}" viewBox="0 0 16 16" aria-hidden="true">${I[n]}</svg>`;
+
+const NOTEBOOKS = [
+  {id:"nb1", title:"Wärmewende in der Kommune", n:4},
+  {id:"nb2", title:"EU AI Act für Produktteams", n:7},
+  {id:"nb3", title:"Lernplan Verteilte Systeme", n:12},
+  {id:"nb4", title:"Bewerbung: Fallstudie", n:3},
+];
+const SOURCES = [
+  {id:"s1", type:"pdf", title:"Leitfaden Kommunale Wärmeplanung.pdf", kind:"PDF, 48 Seiten", on:true,
+    summary:"Leitfaden für Gemeinden: Fristen, Ablauf der Wärmeplanung von der Bestandsanalyse bis zur Umsetzungsstrategie, Beteiligung der Öffentlichkeit.",
+    body:[
+      {pg:"Seite 7"},
+      {id:"p1", t:"Die Wärmeplanung ist für Gemeindegebiete mit mehr als 100.000 Einwohnern bis zum 30. Juni 2026 vorzulegen. Für alle übrigen Gemeindegebiete gilt der 30. Juni 2028."},
+      {t:"Gemeinden mit weniger als 10.000 Einwohnern können ein vereinfachtes Verfahren wählen, sofern die Länder dies vorsehen. Die Fristen bleiben davon unberührt."},
+      {pg:"Seite 12"},
+      {id:"p2", t:"Ausgangspunkt jeder Wärmeplanung ist die Bestandsanalyse. Sie erfasst den aktuellen Wärmebedarf, die Baualtersklassen der Gebäude sowie die vorhandenen Wärme- und Gasnetze."},
+      {t:"Darauf folgt die Potenzialanalyse, die erneuerbare Wärmequellen und unvermeidbare Abwärme im Gemeindegebiet quantifiziert. Erst danach werden Zielszenarien und Eignungsgebiete abgeleitet."},
+      {t:"Die Öffentlichkeit, betroffene Behörden und die Betreiber von Energieversorgungsnetzen sind frühzeitig zu beteiligen."},
+    ]},
+  {id:"s2", type:"web", title:"Feldtest: Wärmepumpen im Gebäudebestand", kind:"Webseite", on:true,
+    summary:"Ergebnisse eines mehrjährigen Feldtests mit Luft-Wasser-Wärmepumpen in Bestandsgebäuden unterschiedlicher Sanierungsstände.",
+    body:[
+      {t:"Über drei Heizperioden wurden 77 Wärmepumpen in Ein- und Zweifamilienhäusern vermessen. Ein Großteil der Gebäude war teilsaniert oder unsaniert."},
+      {id:"p3", t:"In unsanierten Bestandsgebäuden erreichten Luft-Wasser-Wärmepumpen eine mittlere Jahresarbeitszahl von 3,1. Selbst in den ungünstigsten Fällen lag sie über 2,5."},
+      {t:"Entscheidend für die Effizienz waren niedrige Vorlauftemperaturen. Häufig genügte der Tausch einzelner Heizkörper, um sie deutlich zu senken."},
+    ]},
+  {id:"s3", type:"text", title:"Gesprächsnotizen Stadtwerk", kind:"Eingefügter Text", on:true,
+    summary:"Stichpunkte aus einem Gespräch mit dem örtlichen Stadtwerk über Netzausbau, Fachkräfte und Zeitplan.",
+    body:[
+      {t:"Fernwärmenetz Nord: Erweiterung frühestens 2029, Finanzierung offen."},
+      {id:"p4", t:"Größter Engpass laut Stadtwerk sind Installationsbetriebe: Wartezeiten für Wärmepumpen derzeit 5 bis 7 Monate."},
+      {t:"Stadtwerk bietet an, Verbrauchsdaten anonymisiert für die Bestandsanalyse bereitzustellen."},
+    ]},
+  {id:"s4", type:"pdf", title:"Förderprogramme 2026, Übersicht.pdf", kind:"PDF, 9 Seiten", on:false, summary:"", body:[{t:"(Quelle ist deaktiviert und fließt nicht in Antworten ein.)"}]},
+];
+const CITES = {1:["s1","p1"], 2:["s1","p2"], 3:["s2","p3"], 4:["s3","p4"]};
+const NOTES = [
+  {t:"Fristen Wärmeplanung", s:"Unter 100.000 Einwohnern: 30. Juni 2028. Bestandsanalyse als erster Schritt, Stadtwerk liefert Verbrauchsdaten.", o:"Aus einer Antwort gespeichert"},
+  {t:"Fragen an das Stadtwerk", s:"Wer finanziert die Erweiterung Nord? Gibt es Daten zu Vorlauftemperaturen im Bestand?", o:"Selbst geschrieben"},
+  {t:"Entscheidungsvorlage Bauausschuss", s:"Wird vom Agent geschrieben …", o:"Vom Agent", ag:true},
+];
+const STUDIO = [
+  {n:"Audio-Zusammenfassung", s:"Zwei Stimmen, 8:42 Min.", ready:true, audio:true},
+  {n:"Briefing", s:"Erstellt vor 12 Min.", ready:true},
+  {n:"FAQ", s:"Erstellt vor 12 Min.", ready:true},
+  {n:"Quiz", s:"Noch nicht erstellt"},
+  {n:"Mindmap", s:"Noch nicht erstellt"},
+  {n:"Lernkarten", s:"Noch nicht erstellt"},
+];
+
+const S = {
+  variant: new URLSearchParams(location.search).get("variant") || "A",
+  cite: null,          // number of active citation
+  openSrc: null,       // id of source opened in a reader
+  mode: "agent",
+  menu: false,
+  drawer: "studio",    // B
+  rail: "sources",     // C
+  docs: ["s1","s2"],   // C open document tabs
+};
+if(!VARIANTS[S.variant]) S.variant = "A";
+const set = p => { Object.assign(S,p); render(); };
+
+/* ---------- shared pieces ---------- */
+const typeIc = t => ic(t==="pdf"?"pdf":t==="web"?"web":"text");
+const srcRow = s => `<div class="src ${s.on?"":"off"} ${S.openSrc===s.id?"active":""}" data-open="${s.id}">
+  <span class="check ${s.on?"on":""}">${s.on?ic("ok",10):""}</span>
+  <span class="muted">${typeIc(s.type)}</span><span class="t">${s.title}</span></div>`;
+const c = n => `<span class="cite ${S.cite===n?"on":""}" data-cite="${n}" role="button" tabindex="0" aria-label="Zitat ${n}">${n}</span>`;
+
+const thread = () => `<div class="thread">
+  <div class="msg-u">Bis wann müssen wir als Stadt mit 60.000 Einwohnern die Wärmeplanung vorlegen, und taugen Wärmepumpen für unsere Altbauten?</div>
+  <div class="msg-a">
+    <p>Für Gemeinden unter 100.000 Einwohnern gilt der 30. Juni 2028 als Frist&nbsp;<span class="nw">${c(1)}.</span> Die Planung beginnt mit einer Bestandsanalyse von Wärmebedarf, Gebäudealter und vorhandenen Netzen&nbsp;<span class="nw">${c(2)}.</span></p>
+    <p>Zu Altbauten: Im Feldtest erreichten Wärmepumpen in unsanierten Gebäuden eine mittlere Jahresarbeitszahl von 3,1&nbsp;<span class="nw">${c(3)}.</span> Der Engpass liegt eher bei den Installationsbetrieben, mit Wartezeiten von 5 bis 7 Monaten&nbsp;<span class="nw">${c(4)}.</span></p>
+    <div class="msg-tools"><button class="chipbtn">${ic("note",12)} Als Notiz speichern</button><button class="chipbtn">Kopieren</button></div>
+  </div>
+  <div class="msg-u">Erstelle eine Entscheidungsvorlage für den Bauausschuss und ergänze die aktuellen Fördersätze aus dem Web.</div>
+  <div class="msg-a agent">
+    <div class="agent-h">${ic("spark",13)} Agent arbeitet, Schritt 4 von 4</div>
+    <div class="step done"><span class="dot">${ic("ok",12)}</span><div>Quellen durchsucht<div class="d">„Förderung Wärmepumpe Kommune“, 6 Treffer in 2 Quellen</div></div></div>
+    <div class="step done"><span class="dot">${ic("ok",12)}</span><div>Im Web gesucht<div class="d">Aktuelle Fördersätze für Heizungstausch, 3 Seiten gelesen</div></div></div>
+    <div class="step done"><span class="dot">${ic("ok",12)}</span><div>Gliederung erstellt<div class="d">Ausgangslage, Fristen, Optionen, Kosten, Empfehlung</div></div></div>
+    <div class="step run"><span class="dot"></span><div>Schreibt Notiz<div class="d">Entscheidungsvorlage Bauausschuss</div></div></div>
+  </div>
+</div>`;
+
+const composer = () => `<div class="composer"><div class="composer-box ${S.mode==="agent"?"agent-on":""}">
+  <textarea placeholder="${S.mode==="agent"?"Beschreibe eine Aufgabe für den Agent …":"Frage zu deinen Quellen stellen …"}"></textarea>
+  <div class="composer-row">
+    <div class="seg"><button class="${S.mode==="chat"?"on":""}" data-mode="chat">Chat</button><button class="ag ${S.mode==="agent"?"on":""}" data-mode="agent">Agent</button></div>
+    <span class="ctx">${S.mode==="agent"?"Darf Quellen, Web und Notizen nutzen":"3 von 4 Quellen aktiv"}</span>
+    <button class="send" aria-label="Senden">${ic("send",14)}</button>
+  </div></div></div>`;
+
+const studio = () => `<div class="studio">${STUDIO.map(x=>`<button class="tile ${x.ready?"ready":""} ${x.audio?"wide":""}">
+  <span class="n">${x.n}</span><span class="s">${x.s}</span>
+  ${x.audio?`<span class="player"><span class="play">${ic("play",10)}</span><span class="bar"><i></i></span><span class="s">3:18</span></span>`:""}
+</button>`).join("")}</div>`;
+
+const notes = () => NOTES.map(n=>`<div class="note"><div class="n">${n.t}</div><div class="s">${n.s}</div><div class="o ${n.ag?"ag":""}">${n.o}</div></div>`).join("");
+
+const reader = id => {
+  const s = SOURCES.find(x=>x.id===id);
+  const hot = S.cite && CITES[S.cite][0]===id ? CITES[S.cite][1] : null;
+  return `<article class="reader"><h2>${s.title.replace(/\.pdf$/,"")}</h2><div class="meta">${s.kind}</div>
+    ${s.summary?`<div class="summary">${s.summary}</div>`:""}
+    ${s.body.map(b=>b.pg?`<div class="pg">${b.pg}</div>`:`<p>${b.id===hot?`<mark id="hot">${b.t}</mark>`:b.t}</p>`).join("")}
+  </article>`;
+};
+
+const budget = () => `<div class="budget"><span>Demo-Budget</span><span class="m"><i></i></span><span>17,80 $ übrig</span></div>`;
+
+/* ---------- Variant A: three columns ---------- */
+function A(){
+  const left = S.openSrc
+    ? `<div class="ph"><button class="iconbtn" data-close aria-label="Zurück">${ic("left")}</button><span class="grow">Quelle</span></div><div class="scroll">${reader(S.openSrc)}</div>`
+    : `<div class="ph"><span class="grow">Quellen <span class="count">${SOURCES.length}</span></span><button class="iconbtn" aria-label="Quelle hinzufügen">${ic("plus")}</button></div>
+       <div class="scroll" style="padding:6px">${SOURCES.map(srcRow).join("")}</div>`;
+  return `<div class="top">
+      <button class="nbswitch" data-menu>${ic("book",15)} Wärmewende in der Kommune <span class="muted">${ic("down",13)}</span></button>
+      <span style="flex:1"></span>${budget()}<button class="iconbtn" aria-label="Einstellungen">${ic("gear")}</button>
+      ${S.menu?`<div class="menu">${NOTEBOOKS.map((n,i)=>`<div class="nb ${i===0?"on":""}">${ic("book",13)} ${n.title}<span class="c">${n.n}</span></div>`).join("")}
+        <div class="nb" style="border-top:1px solid var(--line);margin-top:4px;border-radius:0">${ic("plus",13)} Neues Notebook</div></div>`:""}
+    </div>
+    <div class="body">
+      <section class="col" style="${S.openSrc?"grid-column:auto":""}">${left}</section>
+      <section class="col"><div class="ph"><span class="grow">Unterhaltung</span></div><div class="scroll" style="flex:1;padding:0 20px">${thread()}</div>${composer()}</section>
+      <section class="col"><div class="ph"><span class="grow">Studio</span></div>${studio()}
+        <div class="ph" style="border-top:1px solid var(--line)"><span class="grow">Notizen <span class="count">${NOTES.length}</span></span><button class="iconbtn" aria-label="Notiz hinzufügen">${ic("plus")}</button></div>
+        <div class="scroll" style="flex:1">${notes()}</div></section>
+    </div>`;
+}
+
+/* ---------- Variant B: notebook sidebar + drawer ---------- */
+function B(){
+  const tab = (k,l) => `<button class="${S.drawer===k?"on":""}" data-drawer="${k}">${l}</button>`;
+  const drawerBody = S.drawer==="source" && S.openSrc ? reader(S.openSrc)
+    : S.drawer==="notes" ? notes() : S.drawer==="studio" ? studio()
+    : `<div style="padding:16px" class="muted">Klicke auf ein Zitat oder eine Quelle.</div>`;
+  return `<aside class="side col">
+      <div class="brand">${ic("book",15)} My Notebook</div>
+      <div class="search">${ic("search",13)} Suchen</div>
+      <div class="group">Notebooks</div>
+      <div class="scroll" style="flex:1;padding:0 6px">
+        ${NOTEBOOKS.map((n,i)=>`<div class="nb ${i===0?"on":""}">${ic(i===0?"down":"book",13)} ${n.title}${i?`<span class="c">${n.n}</span>`:""}</div>
+          ${i===0?`<div class="tree">${SOURCES.map(srcRow).join("")}<div class="src muted">${ic("plus",13)} Quelle hinzufügen</div></div>`:""}`).join("")}
+        <div class="nb">${ic("plus",13)} Neues Notebook</div>
+      </div>
+      <div style="padding:12px 14px;border-top:1px solid var(--line)">${budget()}</div>
+    </aside>
+    <main class="main col">
+      <div class="head"><h1>Wärmewende in der Kommune</h1><span class="faint">3 von 4 Quellen aktiv</span><span style="flex:1"></span>
+        <button class="iconbtn" data-toggle aria-label="Seitenbereich umschalten">${ic("panel")}</button></div>
+      <div class="scroll" style="flex:1;padding:0 24px">${thread()}</div>${composer()}
+    </main>
+    <aside class="drawer col ${S.drawer?"":"closed"}">
+      <div class="tabs">${tab("source","Quelle")}${tab("studio","Studio")}${tab("notes","Notizen")}<span style="flex:1"></span><button class="iconbtn" data-drawer="" aria-label="Schließen">${ic("x")}</button></div>
+      <div class="scroll" style="flex:1">${drawerBody}</div>
+    </aside>`;
+}
+
+/* ---------- Variant C: reading desk ---------- */
+function C(){
+  const r = (k,icn,l) => `<button class="${S.rail===k?"on":""}" data-rail="${k}" aria-label="${l}" title="${l}">${ic(icn,17)}</button>`;
+  const panel = {
+    notebooks:`<div class="ph"><span class="grow">Notebooks</span><button class="iconbtn">${ic("plus")}</button></div><div style="padding:6px">${NOTEBOOKS.map((n,i)=>`<div class="nb ${i===0?"on":""}">${n.title}<span class="c">${n.n}</span></div>`).join("")}</div>`,
+    sources:`<div class="ph"><span class="grow">Quellen <span class="count">${SOURCES.length}</span></span><button class="iconbtn">${ic("plus")}</button></div><div class="scroll" style="padding:6px">${SOURCES.map(srcRow).join("")}</div>`,
+    notes:`<div class="ph"><span class="grow">Notizen</span><button class="iconbtn">${ic("plus")}</button></div><div class="scroll">${notes()}</div>`,
+    studio:`<div class="ph"><span class="grow">Studio</span></div><div class="scroll">${studio().replace('class="studio"','class="studio" style="grid-template-columns:1fr"')}</div>`,
+  }[S.rail];
+  const active = S.openSrc || S.docs[0];
+  return `<nav class="rail">${r("notebooks","book","Notebooks")}${r("sources","stack","Quellen")}${r("notes","note","Notizen")}${r("studio","spark","Studio")}<span class="sp"></span><button aria-label="Einstellungen">${ic("gear",17)}</button></nav>
+    <section class="panel col">${panel}</section>
+    <section class="desk col">
+      <div class="doctabs">${S.docs.map(id=>{const s=SOURCES.find(x=>x.id===id);return `<div class="doctab ${id===active?"on":""}" data-open="${id}"><span class="muted">${typeIc(s.type)}</span><span>${s.title}</span></div>`}).join("")}</div>
+      <div class="scroll" style="flex:1">${reader(active)}</div>
+    </section>
+    <section class="talk col">
+      <div class="ph"><span class="grow">Wärmewende in der Kommune</span>${budget()}</div>
+      <div class="scroll" style="flex:1">${thread()}</div>${composer()}
+    </section>`;
+}
+
+function render(){
+  const app = document.getElementById("app");
+  app.className = S.variant;
+  app.innerHTML = ({A,B,C})[S.variant]();
+  document.getElementById("swl").textContent = `${S.variant} (${VARIANTS[S.variant]})`;
+  const hot = document.getElementById("hot");
+  if(hot) hot.scrollIntoView({block:"center", behavior:"smooth"});
+}
+
+function openCite(n){
+  const [src] = CITES[n];
+  const p = {cite:n, openSrc:src};
+  if(S.variant==="B") p.drawer = "source";
+  if(S.variant==="C" && !S.docs.includes(src)) p.docs = [...S.docs, src];
+  set(p);
+}
+
+document.addEventListener("click", e => {
+  const t = e.target.closest("[data-cite],[data-open],[data-close],[data-mode],[data-menu],[data-drawer],[data-toggle],[data-rail],[data-sw]");
+  if(!t){ if(S.menu) set({menu:false}); return; }
+  const d = t.dataset;
+  if(d.sw) return go(+d.sw);
+  if(d.cite) return openCite(+d.cite);
+  if(d.open!==undefined){
+    const p = {openSrc:d.open, cite:null};
+    if(S.variant==="B") p.drawer = "source";
+    if(S.variant==="C" && !S.docs.includes(d.open)) p.docs = [...S.docs, d.open];
+    return set(p);
+  }
+  if(d.close!==undefined) return set({openSrc:null, cite:null});
+  if(d.mode) return set({mode:d.mode});
+  if(d.menu!==undefined) return set({menu:!S.menu});
+  if(d.drawer!==undefined) return set({drawer:d.drawer});
+  if(d.toggle!==undefined) return set({drawer:S.drawer?"":"studio"});
+  if(d.rail) return set({rail:d.rail});
+});
+document.addEventListener("keydown", e => {
+  if(e.target.closest("input,textarea,[contenteditable]")) return;
+  if(e.key==="Enter" && e.target.dataset.cite) return openCite(+e.target.dataset.cite);
+  if(e.key==="ArrowLeft") go(-1);
+  if(e.key==="ArrowRight") go(1);
+});
+function go(step){
+  const keys = Object.keys(VARIANTS);
+  const v = keys[(keys.indexOf(S.variant)+step+keys.length)%keys.length];
+  try{ const u = new URL(location); u.searchParams.set("variant", v); history.replaceState(null,"",u); }catch(_){}
+  set({variant:v, openSrc:null, cite:null, menu:false});
+}
+render();
+const q = new URLSearchParams(location.search).get("cite"); if(q) openCite(+q);
+</script>
+</body>
+</html>
