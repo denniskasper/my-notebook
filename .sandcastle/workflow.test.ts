@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import { buildPullRequest, selectCandidates } from "./workflow.ts";
 
+const ATTRIBUTION = "🤖 Generated with [Claude Code](https://claude.com/claude-code)";
+
 describe("selectCandidates", () => {
   test("an unblocked issue without a PR is a fresh candidate on its own branch", () => {
     const candidates = selectCandidates(
@@ -11,10 +13,10 @@ describe("selectCandidates", () => {
 
     assert.deepEqual(candidates, [
       {
-        id: "30",
+        issueNumber: 30,
         title: "Walking skeleton",
         branch: "sandcastle/issue-30",
-        rebase: false,
+        pullRequestToRebase: undefined,
       },
     ]);
   });
@@ -29,8 +31,8 @@ describe("selectCandidates", () => {
     );
 
     assert.deepEqual(
-      candidates.map((c) => c.id),
-      ["33"],
+      candidates.map((c) => c.issueNumber),
+      [33],
     );
   });
 
@@ -40,27 +42,27 @@ describe("selectCandidates", () => {
         { number: 33, title: "Text Sources and source reader", openBlockers: 0 },
         { number: 41, title: "Demo fixtures", openBlockers: 0 },
       ],
-      [{ headRefName: "sandcastle/issue-33", mergeable: "MERGEABLE" }],
+      [{ number: 60, headRefName: "sandcastle/issue-33", mergeable: "MERGEABLE" }],
     );
 
     assert.deepEqual(
-      candidates.map((c) => c.id),
-      ["41"],
+      candidates.map((c) => c.issueNumber),
+      [41],
     );
   });
 
   test("an issue whose PR conflicts with main comes back to be rebased", () => {
     const candidates = selectCandidates(
       [{ number: 48, title: "Spend caps and rate limits", openBlockers: 0 }],
-      [{ headRefName: "sandcastle/issue-48", mergeable: "CONFLICTING" }],
+      [{ number: 61, headRefName: "sandcastle/issue-48", mergeable: "CONFLICTING" }],
     );
 
     assert.deepEqual(candidates, [
       {
-        id: "48",
+        issueNumber: 48,
         title: "Spend caps and rate limits",
         branch: "sandcastle/issue-48",
-        rebase: true,
+        pullRequestToRebase: 61,
       },
     ]);
   });
@@ -75,7 +77,7 @@ describe("buildPullRequest", () => {
     });
 
     assert.equal(pr.title, "feat: add walking skeleton");
-    assert.equal(pr.body, "## Summary\n\nAdds the app shell.\n\nCloses #30");
+    assert.equal(pr.body, `## Summary\n\nAdds the app shell.\n\nCloses #30\n\n${ATTRIBUTION}`);
   });
 
   test("a body that already closes the issue is not given a second closing line", () => {
@@ -85,7 +87,7 @@ describe("buildPullRequest", () => {
       review: "",
     });
 
-    assert.equal(pr.body, "Adds the app shell.\n\nCloses #30");
+    assert.equal(pr.body, `Adds the app shell.\n\nCloses #30\n\n${ATTRIBUTION}`);
   });
 
   test("a title that isn't a Conventional Commit is rejected", () => {
@@ -113,7 +115,20 @@ describe("buildPullRequest", () => {
 
     assert.equal(
       pr.body,
-      "## Summary\n\nStreams answers.\n\n## Code review\n\nStandards: 1 finding fixed. Spec: all criteria met.\n\nCloses #34",
+      `## Summary\n\nStreams answers.\n\n## Code review\n\nStandards: 1 finding fixed. Spec: all criteria met.\n\nCloses #34\n\n${ATTRIBUTION}`,
+    );
+  });
+
+  test("an attribution line the agent wrote is moved to the very end", () => {
+    const pr = buildPullRequest(51, {
+      title: "chore: add smoke file",
+      body: `## Summary\n\nAdds a file.\n\n${ATTRIBUTION}`,
+      review: "No findings.",
+    });
+
+    assert.equal(
+      pr.body,
+      `## Summary\n\nAdds a file.\n\n## Code review\n\nNo findings.\n\nCloses #51\n\n${ATTRIBUTION}`,
     );
   });
 });

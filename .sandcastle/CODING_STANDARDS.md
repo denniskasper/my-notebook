@@ -20,13 +20,19 @@ The reviewer checks every slice against these, alongside `AGENTS.md`, `GLOSSARY.
 
 - **German UI text lives only in `src/ui/strings.ts`.** No German literals in components; server errors travel as codes and are mapped to strings there.
 - Use the `frontend-design` skill for UI work. Follow variant D of the layout prototype: graphite dark, hairline borders, amber only for Citations, periwinkle only for Agent mode.
-- Each slice owns its empty, loading and error states, at the polish tier the slice states.
+- Each slice owns its empty, loading and error states, at the polish tier the slice states:
+  - **Must be polished:** Citation → Passage highlight, Chat streaming, the Agent Step timeline, Source status transitions, the three-panel layout.
+  - **May be rough:** Notebook rename/delete, the Notes editor beyond save + Citation click, states off the demo path, Briefing styling.
 
 ## Testing
 
 - Every slice ships: unit tests for its pure logic, integration tests for its module's `index.ts` against the real `_test` database, and one Playwright happy path through the faked `llm`.
 - Test behaviour through public interfaces; no mocks of internal collaborators. The only test double is the `llm` fake.
 - No coverage threshold.
+
+## Done
+
+A slice is done when its acceptance criteria are met, CI is green on its PR, and (once the deploy pipeline exists) production's `/api/health` reports the merge commit.
 
 ## Style
 

@@ -3,51 +3,63 @@
 // write issues).
 
 import { execFileSync } from "node:child_process";
+import { z } from "zod";
 import type { OpenIssue, OpenPullRequest, PullRequest } from "./workflow.ts";
 
-const run = (command: string, args: readonly string[], input?: string) =>
+const exec = (command: string, args: readonly string[], input?: string) =>
   execFileSync(command, args, {
     encoding: "utf8",
     input,
     stdio: ["pipe", "pipe", "inherit"],
   }).trim();
 
-const gh = (...args: string[]) => run("gh", args);
-const git = (...args: string[]) => run("git", args);
+const gh = (...args: string[]) => exec("gh", args);
+const git = (...args: string[]) => exec("git", args);
+
+const issueListSchema = z.array(z.object({ number: z.number(), title: z.string() }));
+const blockerCountSchema = z.coerce.number().int().nonnegative();
+const pullRequestListSchema = z.array(
+  z.object({
+    number: z.number(),
+    headRefName: z.string(),
+    mergeable: z.enum(["MERGEABLE", "CONFLICTING", "UNKNOWN"]),
+  }),
+);
 
 /** Open `ready-for-agent` issues with their count of open native blockers. */
-export const listReadyIssues = (): OpenIssue[] => {
-  const issues: { number: number; title: string }[] = JSON.parse(
-    gh(
-      "issue", "list",
-      "--state", "open",
-      "--label", "ready-for-agent",
-      "--limit", "100",
-      "--json", "number,title",
-    ),
-  );
-  return issues
+export const listReadyIssues = (): OpenIssue[] =>
+  issueListSchema
+    .parse(
+      JSON.parse(
+        gh(
+          "issue", "list",
+          "--state", "open",
+          "--label", "ready-for-agent",
+          "--limit", "100",
+          "--json", "number,title",
+        ),
+      ),
+    )
     .sort((a, b) => a.number - b.number)
     .map((issue) => ({
       ...issue,
-      openBlockers: Number(
+      openBlockers: blockerCountSchema.parse(
         gh(
           "api", `repos/{owner}/{repo}/issues/${issue.number}`,
           "--jq", ".issue_dependencies_summary.blocked_by",
         ),
       ),
     }));
-};
 
-export const listOpenPullRequests = (): (OpenPullRequest & {
-  number: number;
-})[] =>
-  JSON.parse(
-    gh(
-      "pr", "list",
-      "--state", "open",
-      "--limit", "100",
-      "--json", "number,headRefName,mergeable",
+export const listOpenPullRequests = (): OpenPullRequest[] =>
+  pullRequestListSchema.parse(
+    JSON.parse(
+      gh(
+        "pr", "list",
+        "--state", "open",
+        "--limit", "100",
+        "--json", "number,headRefName,mergeable",
+      ),
     ),
   );
 
@@ -55,23 +67,54 @@ export const fetchOrigin = () => {
   git("fetch", "--prune", "origin");
 };
 
-/** Make a branch that only exists on origin (e.g. after a fresh clone) local. */
-export const ensureLocalBranch = (branch: string) => {
-  const local = git("branch", "--list", branch);
-  const remote = git("branch", "--remotes", "--list", `origin/${branch}`);
-  if (!local && remote) git("branch", branch, `origin/${branch}`);
+const revParse = (ref: string): string | undefined => {
+  try {
+    return exec("git", ["rev-parse", "--verify", "--quiet", ref]);
+  } catch {
+    return undefined;
+  }
+};
+
+/**
+ * Point the local branch at origin's copy, so a re-run continues from what's
+ * on the PR (including the developer's own pushes), and return that commit as
+ * the lease for the later push. A branch that isn't on origin yet keeps its
+ * local state; its lease is "must not exist on origin".
+ */
+export const syncBranchWithOrigin = (branch: string): string => {
+  const remote = revParse(`refs/remotes/origin/${branch}`);
+  if (remote) git("branch", "--force", branch, remote);
+  return remote ?? "";
 };
 
 export const commitsAheadOfMain = (branch: string): number =>
   Number(git("rev-list", "--count", `origin/main..${branch}`));
 
-/** Force-with-lease, because a rebase onto main rewrites the branch. */
-export const pushBranch = (branch: string) => {
-  git("push", "--force-with-lease", "--set-upstream", "origin", branch);
+export const isOnTopOfMain = (branch: string): boolean => {
+  try {
+    git("merge-base", "--is-ancestor", "origin/main", branch);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * Force-push (a rebase rewrites the branch), but only if origin still has the
+ * commit the run started from, so nobody's newer pushes are overwritten.
+ */
+export const pushBranch = (branch: string, lease: string) => {
+  git(
+    "push",
+    `--force-with-lease=refs/heads/${branch}:${lease}`,
+    "--set-upstream",
+    "origin",
+    branch,
+  );
 };
 
 export const openPullRequest = (branch: string, pr: PullRequest): string =>
-  run(
+  exec(
     "gh",
     [
       "pr", "create",

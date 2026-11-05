@@ -19,14 +19,16 @@ Read the full diff with `git diff origin/main...{{BRANCH}}` as needed.
 # WRITE
 
 - **Title:** one Conventional Commits subject, `<type>(<optional scope>): <description>`, lower case, imperative, at most 72 characters. It becomes the squash commit on `main`, so it describes the whole change (usually `feat` for a slice).
-- **Body:** call the Skill tool with `pr` and follow it. The code-review summary and `Closes #{{TASK_ID}}` are appended for you; don't add them. No hostnames, URLs of infrastructure, keys or client names. End with:
-
-  🤖 Generated with [Claude Code](https://claude.com/claude-code)
+- **Body:** call the Skill tool with `pr` and follow it. The code-review summary, `Closes #{{TASK_ID}}` and the Claude Code attribution line are appended for you; don't add them. No hostnames, URLs of infrastructure, keys or client names.
 
 # OUTPUT
 
-Output a JSON object wrapped in `<pr>` tags (escape newlines in the body as `\n`):
+Output the title and the body (plain Markdown) in these two tags:
 
-<pr>
-{"title": "feat: add walking skeleton", "body": "## Summary\n\n..."}
-</pr>
+<pr-title>feat: add walking skeleton</pr-title>
+
+<pr-body>
+## Summary
+
+...
+</pr-body>

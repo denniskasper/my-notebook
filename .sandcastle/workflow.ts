@@ -9,14 +9,15 @@ export interface OpenIssue {
 }
 
 export interface Candidate {
-  readonly id: string;
+  readonly issueNumber: number;
   readonly title: string;
   readonly branch: string;
-  /** The branch already has a PR that conflicts with main: rebase it first. */
-  readonly rebase: boolean;
+  /** The branch's open PR, set when it conflicts with main and needs a rebase. */
+  readonly pullRequestToRebase: number | undefined;
 }
 
 export interface OpenPullRequest {
+  readonly number: number;
   readonly headRefName: string;
   /** GitHub's mergeability; UNKNOWN while GitHub is still computing it. */
   readonly mergeable: "MERGEABLE" | "CONFLICTING" | "UNKNOWN";
@@ -41,10 +42,10 @@ export const selectCandidates = (
       if (pullRequest && pullRequest.mergeable !== "CONFLICTING") return [];
       return [
         {
-          id: String(issue.number),
+          issueNumber: issue.number,
           title: issue.title,
           branch,
-          rebase: pullRequest !== undefined,
+          pullRequestToRebase: pullRequest?.number,
         },
       ];
     });
@@ -67,6 +68,9 @@ export interface PullRequest {
 const CONVENTIONAL_TITLE =
   /^(feat|fix|docs|refactor|test|chore|perf|build|ci|style|revert)(\([a-z0-9-]+\))?!?: \S.*$/;
 
+export const ATTRIBUTION =
+  "🤖 Generated with [Claude Code](https://claude.com/claude-code)";
+
 export const buildPullRequest = (
   issueNumber: number,
   draft: PullRequestDraft,
@@ -82,9 +86,10 @@ export const buildPullRequest = (
   ).test(draft.body);
   const review = draft.review.trim();
   const sections = [
-    draft.body.trim(),
+    draft.body.replace(ATTRIBUTION, "").trim(),
     review && `## Code review\n\n${review}`,
     closesIssue ? "" : `Closes #${issueNumber}`,
+    ATTRIBUTION,
   ];
   return { title: draft.title, body: sections.filter(Boolean).join("\n\n") };
 };
