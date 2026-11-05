@@ -1,55 +1,28 @@
 # TASK
 
-Review the code changes on branch `{{BRANCH}}` and improve code clarity, consistency, and maintainability while preserving exact functionality.
+Review the work on branch `{{BRANCH}}` for issue {{TASK_ID}} before it becomes a PR, and fix what the review finds.
 
-# CONTEXT
+# REVIEW
 
-## Branch diff
+Call the Skill tool with `code-review`. The fixed point is `origin/main`; the originating issue is #{{TASK_ID}} (its parent spec is linked at the top of its body). The repo's coding standards are in `.sandcastle/CODING_STANDARDS.md` and `AGENTS.md`.
 
-!`git diff {{TARGET_BRANCH}}...{{BRANCH}}`
+# FIX
 
-## Commits on this branch
+For each finding:
 
-!`git log {{TARGET_BRANCH}}..{{BRANCH}} --oneline`
+- **Fix it** if you agree it's a real defect or a standards/spec gap. Preserve behaviour unless the finding is that the behaviour is wrong.
+- **Skip it** if it's wrong or not worth the change, and say why in one line.
 
-# REVIEW PROCESS
+After fixing, run `pnpm typecheck`, `pnpm lint` and `pnpm test` (skip any script `package.json` does not define yet) and commit with a Conventional Commits subject, for example `refactor(chat): apply code review`. Don't push.
 
-1. **Understand the change**: Read the diff and commits above to understand the intent.
+# OUTPUT
 
-2. **Analyze for improvements**: Look for opportunities to:
-   - Reduce unnecessary complexity and nesting
-   - Eliminate redundant code and abstractions
-   - Improve readability through clear variable and function names
-   - Consolidate related logic
-   - Remove unnecessary comments that describe obvious code
-   - Avoid nested ternary operators - prefer switch statements or if/else chains
-   - Choose clarity over brevity - explicit code is often better than overly compact code
+Summarize the review for the PR description, wrapped in `<review>` tags: one line per axis (Standards, Spec) with the verdict, then the findings as a short list, each marked fixed or skipped (with the reason). No hostnames, keys or client names.
 
-3. **Check correctness**:
-   - Does the implementation match the intent? Are edge cases handled?
-   - Are new/changed behaviours covered by tests?
-   - Are there unsafe casts, `any` types, or unchecked assumptions?
-   - Does the change introduce injection vulnerabilities, credential leaks, or other security issues?
+<review>
+**Standards:** 2 findings, both fixed.
+**Spec:** all acceptance criteria met.
 
-4. **Maintain balance**: Avoid over-simplification that could:
-   - Reduce code clarity or maintainability
-   - Create overly clever solutions that are hard to understand
-   - Combine too many concerns into single functions or components
-   - Remove helpful abstractions that improve code organization
-   - Make the code harder to debug or extend
-
-5. **Apply project standards**: Follow the coding standards defined in @.sandcastle/CODING_STANDARDS.md
-
-6. **Preserve functionality**: Never change what the code does - only how it does it. All original features, outputs, and behaviors must remain intact.
-
-# EXECUTION
-
-If you find improvements to make:
-
-1. Make the changes directly on this branch
-2. Run tests and type checking to ensure nothing is broken
-3. Commit describing the refinements
-
-If the code is already clean and well-structured, do nothing.
-
-Once complete, output <promise>COMPLETE</promise>.
+- Fixed: German string literal in `SourceList` moved to `strings.ts`.
+- Skipped: "extract the SSE parser": used once, not worth a module yet.
+</review>

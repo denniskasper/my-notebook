@@ -1,37 +1,32 @@
-# ISSUES
+# CANDIDATES
 
-Here are the open issues in the repo:
+These open `ready-for-agent` issues are ready to work on: none has an open blocking issue, and none has a PR waiting for a merge.
 
-<issues-json>
+<candidates-json>
 
-!`gh issue list --state open --label ready-for-agent --limit 100 --json number,title,body,labels,comments --jq '[.[] | {number, title, body, labels: [.labels[].name], comments: [.comments[].body]}]'`
+{{CANDIDATES}}
 
-</issues-json>
-
-The list above has already been filtered to issues ready for work.
+</candidates-json>
 
 # TASK
 
-Analyze the open issues and build a dependency graph. For each issue, determine whether it **blocks** or **is blocked by** any other open issue.
+Each chosen issue runs in its own sandbox at the same time, and each becomes its own PR. Choose the largest set of candidates that can run **in parallel without stepping on each other**.
 
-An issue B is **blocked by** issue A if:
+Read each candidate with `gh issue view <id>`. Leave a candidate out of this round if it would likely:
 
-- B requires code or infrastructure that A introduces
-- B and A modify overlapping files or modules, making concurrent work likely to produce merge conflicts
-- B's requirements depend on a decision or API shape that A will establish
+- modify the same files or module as another chosen issue (merge conflicts between the PRs), or
+- add a database migration while another chosen issue also adds one.
 
-An issue is **unblocked** if it has zero blocking dependencies on other open issues.
+Real dependencies between issues are already handled by GitHub's blocking relationships, so don't infer any; only avoid file conflicts.
 
-For each unblocked issue, assign a branch name using the exact format `sandcastle/issue-{id}` (no slug or other suffix). This must be deterministic so that re-planning the same issue always produces the same branch name and accumulated progress is preserved.
+When two candidates collide, keep the lower issue number; the other runs in a later round.
 
 # OUTPUT
 
-Output your plan as a JSON object wrapped in `<plan>` tags:
+Output your plan as a JSON object wrapped in `<plan>` tags, listing only the chosen issue ids:
 
 <plan>
-{"issues": [{"id": "42", "title": "Fix auth bug", "branch": "sandcastle/issue-42"}]}
+{"issues": [{"id": "42"}, {"id": "45"}]}
 </plan>
 
-Include only unblocked issues. If every issue is blocked, include the single highest-priority candidate (the one with the fewest or weakest dependencies).
-
-Always emit the `<plan>` tags, even when there is nothing to do. If there are no issues to work on at all, output `<plan>{"issues": []}</plan>` so the run can exit cleanly.
+Always choose at least one candidate.
