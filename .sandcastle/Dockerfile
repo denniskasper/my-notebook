@@ -15,6 +15,15 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
   && apt-get update && apt-get install -y gh \
   && rm -rf /var/lib/apt/lists/*
 
+# Postgres 18 (PGDG) for integration tests. No system cluster: the agent user
+# owns its own data directory (below), so no sudo is needed to start it.
+RUN apt-get update && apt-get install -y postgresql-common ca-certificates \
+  && /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y \
+  && sed -i 's/^#\?\s*create_main_cluster.*/create_main_cluster = false/' /etc/postgresql-common/createcluster.conf \
+  && apt-get install -y postgresql-18 \
+  && rm -rf /var/lib/apt/lists/*
+ENV PATH="/usr/lib/postgresql/18/bin:$PATH"
+
 # pnpm via corepack (version pinned by "packageManager" in package.json)
 RUN corepack enable
 
@@ -35,6 +44,19 @@ RUN curl -fsSL https://claude.ai/install.sh | bash
 ENV PATH="/home/agent/.local/bin:$PATH"
 
 WORKDIR /home/agent
+
+# The agent's Postgres cluster with the dev and _test databases. The sandbox
+# hook starts it (pg_ctl) before the agent runs; the app reads the URLs below.
+ENV PGDATA=/home/agent/pgdata
+ENV DATABASE_URL=postgres://postgres@localhost:5432/my_notebook
+ENV TEST_DATABASE_URL=postgres://postgres@localhost:5432/my_notebook_test
+RUN initdb --username=postgres --auth=trust --encoding=UTF8 --locale=C.UTF-8 \
+  && echo "unix_socket_directories = '/tmp'" >> "$PGDATA/postgresql.conf" \
+  && echo "listen_addresses = 'localhost'" >> "$PGDATA/postgresql.conf" \
+  && pg_ctl -w -l /tmp/initdb.log start \
+  && createdb -h localhost -U postgres my_notebook \
+  && createdb -h localhost -U postgres my_notebook_test \
+  && pg_ctl -w stop
 
 # In worktree sandbox mode, Sandcastle bind-mounts the git worktree at /home/agent/workspace
 # and overrides the working directory to /home/agent/workspace at container start.
