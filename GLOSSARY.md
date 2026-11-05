@@ -51,3 +51,11 @@ _Avoid_: Podcast, audio summary
 **Visitor**:
 The anonymous person who owns notebooks, recognized again by a cookie instead of an account.
 _Avoid_: User, session, account
+
+**Daily allowance**:
+The amount of AI spend one Visitor may use per day (UI: *Tageskontingent*).
+_Avoid_: Quota, credit, budget
+
+**Demo budget**:
+The overall limit on AI spend for the public demo, per day and in total, shared by all Visitors (UI: *Demo-Budget*).
+_Avoid_: Quota, credit, allowance
