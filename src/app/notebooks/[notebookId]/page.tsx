@@ -4,20 +4,20 @@ import { z } from 'zod';
 
 import { getNotebook, NOTEBOOK_TITLE_MAX_LENGTH } from '@/modules/notebooks';
 import { strings } from '@/ui/strings';
-import { EmptyConversation, NotebookHeader, Sidebar, WorkspaceShell } from '@/ui/workspace';
+import { EmptyConversation, NotebookHeader, Sidebar, AppShell } from '@/ui/shell';
 
 import { createNotebookAction, deleteNotebookAction, renameNotebookAction } from '../../actions';
-import { loadWorkspace } from '../../workspace-data';
+import { loadSidebar } from '../../sidebar-data';
 
 type Props = { params: Promise<{ notebookId: string }> };
 
 async function loadNotebook(params: Props['params']) {
   const notebookId = z.uuid().safeParse((await params).notebookId);
-  const workspace = await loadWorkspace();
-  if (!notebookId.success || !workspace.visitorId) notFound();
-  const notebook = await getNotebook(workspace.visitorId, notebookId.data);
+  const sidebar = await loadSidebar();
+  if (!notebookId.success || !sidebar.visitorId) notFound();
+  const notebook = await getNotebook(sidebar.visitorId, notebookId.data);
   if (!notebook) notFound();
-  return { notebook, notebooks: workspace.notebooks };
+  return { notebook, notebooks: sidebar.notebooks };
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -28,7 +28,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function NotebookPage({ params }: Props) {
   const { notebook, notebooks } = await loadNotebook(params);
   return (
-    <WorkspaceShell
+    <AppShell
       withDrawer
       sidebar={
         <Sidebar
@@ -48,6 +48,6 @@ export default async function NotebookPage({ params }: Props) {
       }
     >
       <EmptyConversation />
-    </WorkspaceShell>
+    </AppShell>
   );
 }

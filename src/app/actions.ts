@@ -12,10 +12,8 @@ import {
 } from '@/modules/notebooks';
 import { ensureVisitor } from '@/modules/visitors';
 import { requestLogger } from '@/platform/logging';
-import type { ErrorCode } from '@/ui/strings';
+import type { ActionResult } from '@/ui/shell';
 import { strings } from '@/ui/strings';
-
-export type ActionResult = { ok: true } | { ok: false; error: ErrorCode } | null;
 
 const notebookIdSchema = z.object({ notebookId: z.uuid() });
 const renameSchema = notebookIdSchema.extend({ title: notebookTitleSchema });

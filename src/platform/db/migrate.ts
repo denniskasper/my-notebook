@@ -2,6 +2,8 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { Client } from 'pg';
 
+import { databaseUrlSchema } from '../env';
+
 // Any constant works; it only has to be the same for every app instance.
 const MIGRATION_LOCK_ID = 727_001;
 
@@ -27,11 +29,11 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   } catch {
     // No .env file: rely on the process environment.
   }
-  const url = process.env.DATABASE_URL;
-  if (!url) {
-    console.error('DATABASE_URL is not set');
+  const url = databaseUrlSchema.safeParse(process.env.DATABASE_URL);
+  if (!url.success) {
+    console.error('DATABASE_URL must be a Postgres URL');
     process.exit(1);
   }
-  await runMigrations(url);
+  await runMigrations(url.data);
   console.log('Migrations applied');
 }

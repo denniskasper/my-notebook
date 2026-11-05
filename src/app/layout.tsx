@@ -23,6 +23,7 @@ export const metadata: Metadata = {
   description: strings.app.description,
 };
 
+// The Viewport API needs a literal colour: keep in sync with `--color-bg` in globals.css.
 export const viewport: Viewport = { themeColor: '#141619', colorScheme: 'dark' };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

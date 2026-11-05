@@ -13,12 +13,13 @@ import {
 } from '@/ui/components/dropdown-menu';
 import { errorMessage, format, strings, type ErrorCode } from '@/ui/strings';
 
-type RenameResult = { ok: true } | { ok: false; error: ErrorCode } | null;
+/** The outcome of a Server Action that can fail with an error code; `null` before the first run. */
+export type ActionResult = { ok: true } | { ok: false; error: ErrorCode } | null;
 
 type Props = {
   notebook: { id: string; title: string };
   maxTitleLength: number;
-  renameNotebook: (previous: RenameResult, formData: FormData) => Promise<RenameResult>;
+  renameNotebook: (previous: ActionResult, formData: FormData) => Promise<ActionResult>;
   deleteNotebook: (formData: FormData) => Promise<void>;
 };
 
@@ -31,7 +32,7 @@ export function NotebookHeader({
 }: Props) {
   const [editing, setEditing] = useState(false);
   const deleteForm = useRef<HTMLFormElement>(null);
-  const [result, renameAction, pending] = useActionState<RenameResult, FormData>(
+  const [result, renameAction, pending] = useActionState<ActionResult, FormData>(
     async (previous, formData) => {
       const next = await renameNotebook(previous, formData);
       if (next?.ok) setEditing(false);
@@ -67,7 +68,7 @@ export function NotebookHeader({
           </Button>
           {result?.ok === false && (
             <p role="alert" className="truncate text-[12px] text-danger">
-              {errorMessage(result.error)}
+              {errorMessage(result.error, { max: maxTitleLength })}
             </p>
           )}
         </form>

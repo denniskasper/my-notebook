@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { clientIp, hashIp, parseVisitorId } from '.';
+import { clientIp, hashIp } from './ip-hash';
+import { parseVisitorId } from './store';
 
 describe('hashIp', () => {
   it('is stable for the same IP and secret, and hides the IP', () => {

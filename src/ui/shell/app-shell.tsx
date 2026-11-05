@@ -22,7 +22,7 @@ type Props = {
  * Variant D: Notebook sidebar, conversation centre, Source / Studio / Notes drawer.
  * Below `md` the sidebar, below `lg` the drawer become overlays.
  */
-export function WorkspaceShell({ sidebar, header, children, withDrawer = false }: Props) {
+export function AppShell({ sidebar, header, children, withDrawer = false }: Props) {
   const pathname = usePathname();
   // The mobile sidebar closes itself after navigating: it is open only for the path it was opened on.
   const [sidebarOpenOn, setSidebarOpenOn] = useState<string | null>(null);

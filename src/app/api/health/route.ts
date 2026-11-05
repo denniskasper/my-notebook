@@ -8,7 +8,7 @@ import packageJson from '../../../../package.json';
 
 export const dynamic = 'force-dynamic';
 
-/** Liveness for Swarm and the deploy job: DB ping, version and running commit. */
+/** Liveness for the orchestrator and the deploy job: DB ping, version and running commit. */
 export async function GET() {
   const database = (await pingDatabase()) ? 'ok' : 'down';
   const body = {

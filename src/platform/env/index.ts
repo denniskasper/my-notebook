@@ -5,10 +5,15 @@ const LOG_LEVELS = ['trace', 'debug', 'info', 'warn', 'error', 'fatal', 'silent'
 // Only used outside production so local runs and tests work without extra setup.
 const DEVELOPMENT_IP_HASH_SECRET = 'development-only-ip-hash-secret-not-for-production';
 
+/** A Postgres connection URL. */
+export const databaseUrlSchema = z.url({ protocol: /^postgres(ql)?$/ });
+
 export const envSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
-    DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
+    DATABASE_URL: databaseUrlSchema,
+    // The integration/e2e test database; only the test tooling reads it.
+    TEST_DATABASE_URL: databaseUrlSchema.optional(),
     IP_HASH_SECRET: z.string().min(32).optional(),
     LOG_LEVEL: z.enum(LOG_LEVELS).default('info'),
     COMMIT: z.string().min(1).default('unknown'),

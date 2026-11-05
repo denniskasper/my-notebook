@@ -12,7 +12,7 @@ export function Welcome({ createNotebook }: { createNotebook: () => Promise<void
         <h1 className="font-read text-[30px] leading-[1.15] font-normal tracking-[-0.015em]">
           {welcome.title}
         </h1>
-        <p className="mt-4 font-read text-[17px] leading-[1.6] text-[#c4c9cf]">{welcome.body}</p>
+        <p className="mt-4 font-read text-[17px] leading-[1.6] text-soft">{welcome.body}</p>
         <form action={createNotebook} className="mt-8">
           <SubmitButton variant="primary" size="lg">
             <Plus size={15} aria-hidden />

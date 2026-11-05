@@ -47,4 +47,10 @@ describe('errorMessage', () => {
   it('maps every error code to a German message', () => {
     expect(errorMessage('not_found')).toBe('Dieses Notebook gibt es nicht mehr.');
   });
+
+  it('fills placeholders from values', () => {
+    expect(errorMessage('invalid_title', { max: 120 })).toBe(
+      'Der Titel muss zwischen 1 und 120 Zeichen lang sein.',
+    );
+  });
 });

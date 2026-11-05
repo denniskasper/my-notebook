@@ -3,7 +3,7 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { closeDb } from '@/platform/db';
 import { resetDatabase } from '@/test/database';
 
-import { createVisitor, findVisitor, resolveVisitor, touchVisitor } from '.';
+import { createVisitor, findVisitor, resolveVisitor, touchVisitor } from './store';
 
 beforeEach(resetDatabase);
 afterAll(closeDb);

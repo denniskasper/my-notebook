@@ -1,3 +1,3 @@
-export { currentVisitorId, ensureVisitor, VISITOR_COOKIE } from './cookie';
-export { clientIp, hashIp } from './ip-hash';
-export { createVisitor, findVisitor, parseVisitorId, resolveVisitor, touchVisitor } from './store';
+export { currentVisitorId, ensureVisitor } from './cookie';
+// Test seam: other modules' integration tests need a Visitor to own their rows.
+export { createVisitor } from './store';

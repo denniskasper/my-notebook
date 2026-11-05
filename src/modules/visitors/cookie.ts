@@ -5,7 +5,7 @@ import { env } from '@/platform/env';
 import { clientIp, hashIp } from './ip-hash';
 import { parseVisitorId, resolveVisitor } from './store';
 
-export const VISITOR_COOKIE = 'visitor';
+const VISITOR_COOKIE = 'visitor';
 const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
 
 /**

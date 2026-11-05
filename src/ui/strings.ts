@@ -88,7 +88,7 @@ export const strings = {
     title: 'Etwas ist schiefgelaufen',
     retry: 'Erneut versuchen',
     codes: {
-      invalid_title: 'Der Titel muss zwischen 1 und 120 Zeichen lang sein.',
+      invalid_title: 'Der Titel muss zwischen 1 und {max} Zeichen lang sein.',
       not_found: 'Dieses Notebook gibt es nicht mehr.',
       unknown: 'Das hat nicht geklappt. Bitte versuch es noch einmal.',
     },
@@ -97,6 +97,10 @@ export const strings = {
 
 export type ErrorCode = keyof typeof strings.errors.codes;
 
-export function errorMessage(code: ErrorCode): string {
-  return strings.errors.codes[code];
+/** The text for a server error code, with `{placeholders}` filled from `values`. */
+export function errorMessage(
+  code: ErrorCode,
+  values: Record<string, string | number> = {},
+): string {
+  return format(strings.errors.codes[code], values);
 }

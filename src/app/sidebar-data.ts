@@ -1,9 +1,9 @@
 import { listNotebooks } from '@/modules/notebooks';
 import { currentVisitorId } from '@/modules/visitors';
-import type { SidebarNotebook } from '@/ui/workspace';
+import type { SidebarNotebook } from '@/ui/shell';
 
 /** The Visitor (if any) and their Notebooks for the sidebar. Never creates a Visitor. */
-export async function loadWorkspace(): Promise<{
+export async function loadSidebar(): Promise<{
   visitorId: string | null;
   notebooks: SidebarNotebook[];
 }> {

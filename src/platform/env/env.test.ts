@@ -17,6 +17,14 @@ describe('parseEnv', () => {
     expect(parseEnv({ ...base, COMMIT: '' }).COMMIT).toBe('unknown');
   });
 
+  it('accepts an optional Postgres TEST_DATABASE_URL', () => {
+    const url = 'postgres://postgres@localhost:5432/my_notebook_test';
+    expect(parseEnv({ ...base, TEST_DATABASE_URL: url }).TEST_DATABASE_URL).toBe(url);
+    expect(() => parseEnv({ ...base, TEST_DATABASE_URL: 'mysql://localhost/db' })).toThrow(
+      /TEST_DATABASE_URL/,
+    );
+  });
+
   it('rejects a missing or non-Postgres DATABASE_URL', () => {
     expect(() => parseEnv({})).toThrow(/DATABASE_URL/);
     expect(() => parseEnv({ DATABASE_URL: 'mysql://localhost/db' })).toThrow(/DATABASE_URL/);
