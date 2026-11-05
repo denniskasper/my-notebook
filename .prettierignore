@@ -1,0 +1,9 @@
+.sandcastle/
+.next/
+drizzle/meta/
+pnpm-lock.yaml
+playwright-report/
+test-results/
+*.md
+.agents/
+.claude/

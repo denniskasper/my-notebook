@@ -1,0 +1,79 @@
+@import 'tailwindcss';
+
+/* Variant D tokens: graphite dark, hairline borders.
+   Amber (hl) is reserved for Citations, periwinkle (agent) for Agent mode. */
+@theme {
+  --color-bg: #141619;
+  --color-panel: #191c20;
+  --color-raise: #1f2328;
+  --color-hover: #252a30;
+  --color-line: #2a2f36;
+  --color-line-soft: #21252b;
+  --color-text: #dfe3e8;
+  --color-muted: #8b939e;
+  --color-faint: #5f6772;
+  --color-hl: #e6c35c;
+  --color-hl-bg: rgb(230 195 92 / 0.15);
+  --color-hl-line: rgb(230 195 92 / 0.45);
+  --color-agent: #9aa8ff;
+  --color-agent-bg: rgb(154 168 255 / 0.09);
+  --color-agent-line: rgb(154 168 255 / 0.35);
+  --color-ok: #7fc8a0;
+  --color-danger: #e8837a;
+
+  /* shadcn/ui semantic names mapped onto the variant D palette */
+  --color-background: var(--color-bg);
+  --color-foreground: var(--color-text);
+  --color-border: var(--color-line);
+  --color-input: var(--color-line);
+  --color-ring: var(--color-text);
+  --color-popover: var(--color-raise);
+  --color-popover-foreground: var(--color-text);
+  --color-muted-foreground: var(--color-muted);
+  --color-accent: var(--color-hover);
+  --color-accent-foreground: var(--color-text);
+  --color-primary: var(--color-text);
+  --color-primary-foreground: var(--color-bg);
+  --color-destructive: var(--color-danger);
+
+  --font-ui: var(--font-instrument-sans), system-ui, sans-serif;
+  --font-read: var(--font-newsreader), Georgia, serif;
+
+  --text-ui: 13px;
+  --text-ui--line-height: 1.45;
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+}
+
+@layer base {
+  html,
+  body {
+    height: 100%;
+  }
+  body {
+    background: var(--color-bg);
+    color: var(--color-text);
+    font: 400 13px/1.45 var(--font-ui);
+    -webkit-font-smoothing: antialiased;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 1px;
+    border-radius: 4px;
+  }
+  button:not(:disabled) {
+    cursor: pointer;
+  }
+  ::selection {
+    background: rgb(223 227 232 / 0.18);
+  }
+}
+
+@utility scroll-area {
+  overflow: auto;
+  min-height: 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line) transparent;
+}
