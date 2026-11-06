@@ -17,7 +17,7 @@ function seedDemoNotebook(): z.infer<typeof seededSchema> {
   return seededSchema.parse(JSON.parse(output));
 }
 
-test('a Visitor finds the seeded demo Notebook and reads the demo notes', async ({
+test('a Visitor finds the seeded demo Notebook and reads the demo text Source', async ({
   page,
   context,
   baseURL,

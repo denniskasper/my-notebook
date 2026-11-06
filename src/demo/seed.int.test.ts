@@ -14,17 +14,17 @@ import { seedDemoNotebook } from './seed';
 
 let demoDir: string;
 
+function idOf(source: Source | undefined): string {
+  if (!source) throw new Error('Source missing');
+  return source.id;
+}
+
 beforeEach(async () => {
   await resetDatabase();
   // A copy of the committed fixtures, so a developer's own `demo/local/` stays out of the test.
   demoDir = await mkdtemp(path.join(tmpdir(), 'demo-'));
   await cp('demo/sources', path.join(demoDir, 'sources'), { recursive: true });
 });
-function idOf(source: Source | undefined): string {
-  if (!source) throw new Error('Source missing');
-  return source.id;
-}
-
 afterEach(() => rm(demoDir, { recursive: true, force: true }));
 afterAll(closeDb);
 
@@ -65,7 +65,7 @@ describe('seedDemoNotebook', () => {
     );
   });
 
-  it('adds local copies of the other Sources after the notes, titled by their first line', async () => {
+  it('adds local copies of the other Sources after the demo text Source, titled by their first line', async () => {
     await mkdir(path.join(demoDir, 'local'));
     await writeFile(
       path.join(demoDir, 'local', 'b-wikipedia.md'),

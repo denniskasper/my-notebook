@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-const sourceKeySchema = z.string().regex(/^[a-z0-9-]+$/);
+const slugSchema = z.string().regex(/^[a-z0-9-]+$/);
 
 const keyFactSchema = z.object({
   // What the answer must say, for the report.
@@ -10,20 +10,23 @@ const keyFactSchema = z.object({
 });
 
 const evalQuestionSchema = z.object({
-  id: z.string().regex(/^[a-z0-9-]+$/),
+  id: slugSchema,
   // The storyboard scene that asks it in the video (`demo/storyboard.md`), or null.
-  scene: z.string().nullable(),
+  scene: z
+    .string()
+    .regex(/^P\d+$/)
+    .nullable(),
   mode: z.enum(['chat', 'agent']),
   question: z.string().min(1),
-  enabledSources: z.array(sourceKeySchema).min(1),
+  enabledSources: z.array(slugSchema).min(1),
   // Sources the Citations must land in; empty means the Sources don't cover the question.
-  expectedSources: z.array(sourceKeySchema),
+  expectedSources: z.array(slugSchema),
   keyFacts: z.array(keyFactSchema),
 });
 
 export const evalSetSchema = z
   .object({
-    sources: z.array(z.object({ key: sourceKeySchema, title: z.string().min(1) })).min(1),
+    sources: z.array(z.object({ key: slugSchema, title: z.string().min(1) })).min(1),
     questions: z.array(evalQuestionSchema).min(1),
   })
   .superRefine((set, ctx) => {

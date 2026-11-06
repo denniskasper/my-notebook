@@ -39,7 +39,7 @@
       "mode": "chat",
       "question": "Welche Behörde überwacht in Deutschland den Markt für KI-Systeme?",
       "enabledSources": ["notizen", "ki-mig"],
-      "expectedSources": ["ki-mig"],
+      "expectedSources": ["notizen", "ki-mig"],
       "keyFacts": [{ "fact": "Bundesnetzagentur", "anyOf": ["Bundesnetzagentur"] }]
     },
     {
@@ -57,7 +57,7 @@
         { "fact": "Bundesnetzagentur", "anyOf": ["Bundesnetzagentur"] },
         {
           "fact": "My Notebook ist kein Hochrisiko-System",
-          "anyOf": ["kein Hochrisiko", "begrenzte", "Transparenz"]
+          "anyOf": ["kein Hochrisiko"]
         }
       ]
     },
@@ -76,7 +76,7 @@
         { "fact": "Bundesnetzagentur als zentrale Behörde", "anyOf": ["Bundesnetzagentur"] },
         {
           "fact": "KI-Marktüberwachungskammer (§ 4 KI-MIG)",
-          "anyOf": ["KI-Marktüberwachungskammer", "§ 4"]
+          "anyOf": ["KI-Marktüberwachungskammer"]
         }
       ]
     },

@@ -1,4 +1,3 @@
-// `pnpm demo:seed [--visitor <id>]`: seeds the demo Notebook into the local database.
 import { parseArgs } from 'node:util';
 
 import { z } from 'zod';

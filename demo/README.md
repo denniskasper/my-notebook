@@ -17,7 +17,7 @@ pnpm demo:seed                       # new Visitor; prints how to set its cookie
 pnpm demo:seed --visitor <VISITOR_ID> # into your own Visitor (the `visitor` cookie's value)
 ```
 
-It creates a Notebook „KI-Verordnung" with the demo notes as a ready text Source, plus one text
+It creates a Notebook „KI-Verordnung" with „Meine Notizen zur KI-Verordnung" as a ready text Source, plus one text
 Source per `.md`/`.txt` file in `demo/local/` (first line `# <title>`, then the text), for
 example the text of the KI-MIG PDF or the Wikipedia article. It prints
 `{"visitorId":…,"notebookId":…}` on stdout.

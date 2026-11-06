@@ -59,6 +59,12 @@ describe('parseEvalSet', () => {
     ).toThrow(/not covered/);
   });
 
+  it('rejects a scene that is not a storyboard scene id', () => {
+    expect(() => parseEvalSet({ sources, questions: [{ ...question, scene: 'Szene 2' }] })).toThrow(
+      /scene/,
+    );
+  });
+
   it('rejects duplicate question ids', () => {
     expect(() => parseEvalSet({ sources, questions: [question, question] })).toThrow(/duplicate/);
   });

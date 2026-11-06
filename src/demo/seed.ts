@@ -6,7 +6,7 @@ import { addTextSource, processSource, type Source } from '@/modules/sources';
 import { createVisitor } from '@/modules/visitors';
 
 const NOTEBOOK_TITLE = 'KI-Verordnung';
-const NOTES_FILE = path.join('sources', 'meine-notizen.md');
+const NOTES_SOURCE_FILE = path.join('sources', 'meine-notizen.md');
 // Git-ignored: extracted text of the PDF and URL Sources, if the developer has it.
 const LOCAL_DIR = 'local';
 const LOCAL_EXTENSIONS = new Set(['.md', '.txt']);
@@ -33,7 +33,7 @@ async function localFiles(demoDir: string): Promise<string[]> {
 
 /** The demo text Source first, then any local copies in file-name order. */
 async function loadDemoSources(demoDir: string): Promise<DemoSource[]> {
-  const files = [NOTES_FILE, ...(await localFiles(demoDir))];
+  const files = [NOTES_SOURCE_FILE, ...(await localFiles(demoDir))];
   return Promise.all(
     files.map(async (file) => parseDemoSource(await readFile(path.join(demoDir, file), 'utf8'))),
   );
