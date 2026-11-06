@@ -32,9 +32,9 @@ const PROMPT_TOKEN_LIMIT = 100_000;
 // Room for the system prompt, the question and the per-block overhead of the documents.
 const PROMPT_RESERVE_TOKENS = 8_000;
 
-/** How many tokens of history fit next to the Sources without passing the price step. */
+/** How many tokens of history fit next to the Sources without passing the price step (never negative). */
 export function historyBudget(sourceTokens: number): number {
-  return PROMPT_TOKEN_LIMIT - PROMPT_RESERVE_TOKENS - sourceTokens;
+  return Math.max(0, PROMPT_TOKEN_LIMIT - PROMPT_RESERVE_TOKENS - sourceTokens);
 }
 
 export const CHAT_SYSTEM_PROMPT = `You answer questions about the user's sources in a notebook app.

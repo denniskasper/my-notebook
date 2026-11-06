@@ -7,6 +7,9 @@ import { logger } from '@/platform/logging';
 import { messagePartsSchema, type MessagePart } from './parts';
 import { messages } from './schema';
 
+// An answer streams for seconds; one older than this lost its process.
+export const STREAMING_STALE_AFTER_MS = 5 * 60_000;
+
 type MessageRow = typeof messages.$inferSelect;
 
 export type ChatMessage = Omit<MessageRow, 'parts' | 'notebookId'> & { parts: MessagePart[] };

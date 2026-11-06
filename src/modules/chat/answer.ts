@@ -5,14 +5,14 @@ import { getNotebook } from '@/modules/notebooks';
 import { listPromptSources } from '@/modules/sources';
 import { estimateOutputTokens, recordUsage } from '@/modules/usage';
 import { db } from '@/platform/db';
-import { llm, type LlmUsage } from '@/platform/llm';
+import { llm, type ChatRequest, type LlmUsage } from '@/platform/llm';
 import { logger } from '@/platform/logging';
 
 import { toCitation, type Citation, type PromptDocument } from './citations';
 import type { TextPart } from './parts';
 import { buildChatRequest, historyBudget, trimHistory, type HistoryTurn } from './prompt';
 import { messages } from './schema';
-import { listMessages, type ChatMessage } from './store';
+import { listMessages, STREAMING_STALE_AFTER_MS, type ChatMessage } from './store';
 
 export const QUESTION_MAX_LENGTH = 4_000;
 
@@ -33,12 +33,9 @@ export type ChatEvent =
 type Options = {
   /** Aborted when the Visitor stops the answer (or goes away). */
   signal: AbortSignal;
-  /** Awaited, so a slow consumer slows the stream down instead of piling it up. */
+  /** Awaited before the next event is read, for consumers that need ordering or backpressure. */
   onEvent: (event: ChatEvent) => void | Promise<void>;
 };
-
-// An answer streams for seconds; one older than this lost its process.
-export const STREAMING_STALE_AFTER_MS = 5 * 60_000;
 
 /**
  * Answers a question from the Notebook's enabled Sources: stores the question
@@ -46,7 +43,7 @@ export const STREAMING_STALE_AFTER_MS = 5 * 60_000;
  * it as `complete`, `stopped` (signal aborted) or `failed`. Every LLM call is
  * recorded in the usage ledger, an aborted one with its output estimated.
  */
-export async function askQuestion(
+export async function answerQuestion(
   input: { visitorId: string; notebookId: string; question: string },
   { signal, onEvent }: Options,
 ): Promise<void> {
@@ -81,8 +78,9 @@ export async function askQuestion(
   await emit({ type: 'started', ...started });
 
   const answer = await streamAnswer(request, documents, { signal, emit });
-  await finishAnswer(started.assistantMessageId, answer);
+  // Usage first: the call is billed even if storing the answer fails.
   await recordAnswerUsage({ visitorId, notebookId }, answer);
+  await finishAnswer(started.assistantMessageId, answer);
 
   if (answer.status === 'failed') await emit({ type: 'error', error: 'llm_failed' });
   else await emit({ type: 'done', status: answer.status });
@@ -123,7 +121,7 @@ async function startAnswer(
       .limit(1);
     if (streaming) return null;
 
-    const userPart: TextPart = { type: 'text', text: question, citations: [] };
+    const userPart: TextPart = { ...emptyTextPart(), text: question };
     const [user] = await tx
       .insert(messages)
       .values({ notebookId, role: 'user', parts: [userPart], status: 'complete' })
@@ -137,6 +135,8 @@ async function startAnswer(
   });
 }
 
+const emptyTextPart = (): TextPart => ({ type: 'text', text: '', citations: [] });
+
 type Answer = {
   status: 'complete' | 'stopped' | 'failed';
   parts: TextPart[];
@@ -147,7 +147,7 @@ type Answer = {
 };
 
 async function streamAnswer(
-  request: Parameters<ReturnType<typeof llm>['streamChat']>[0],
+  request: ChatRequest,
   documents: PromptDocument[],
   { signal, emit }: { signal: AbortSignal; emit: (event: ChatEvent) => Promise<void> },
 ): Promise<Answer> {
@@ -162,7 +162,7 @@ async function streamAnswer(
   const current = (): { index: number; part: TextPart } => {
     let part = answer.parts.at(-1);
     if (!part) {
-      part = { type: 'text', text: '', citations: [] };
+      part = emptyTextPart();
       answer.parts.push(part);
     }
     return { index: answer.parts.length - 1, part };
@@ -175,7 +175,7 @@ async function streamAnswer(
           answer.startUsage = event.usage;
           break;
         case 'text_block':
-          answer.parts.push({ type: 'text', text: '', citations: [] });
+          answer.parts.push(emptyTextPart());
           break;
         case 'text': {
           const { index, part } = current();

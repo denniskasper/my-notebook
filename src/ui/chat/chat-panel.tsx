@@ -25,7 +25,7 @@ type Props = {
   existingSourceIds: readonly string[];
   openCitation: OpenCitation;
   /** Whether the Notebook has an enabled, ready Source to ground answers in. */
-  canAsk: boolean;
+  canSubmitQuestion: boolean;
   /** e.g. „2 von 3 Quellen aktiv“ or „Keine Quellen“. */
   sourceSummary: string;
   questionMaxLength: number;
@@ -48,7 +48,7 @@ export function ChatPanel({
   messages,
   existingSourceIds,
   openCitation,
-  canAsk,
+  canSubmitQuestion,
   sourceSummary,
   questionMaxLength,
   clearChat,
@@ -74,8 +74,9 @@ export function ChatPanel({
   useRefreshWhile(!streaming && messages.some((message) => message.status === 'streaming'));
   const { ref: threadRef, onScroll: onThreadScroll, stick } = useStickToBottom();
   const sources = new Set(existingSourceIds);
+  const emptyBody = canSubmitQuestion ? strings.chat.emptyBody : strings.chat.noActiveSources;
 
-  async function ask(question: string) {
+  async function streamQuestion(question: string) {
     const stop = new AbortController();
     stopRef.current = stop;
     let started = false;
@@ -137,8 +138,8 @@ export function ChatPanel({
   function submit(event?: FormEvent) {
     event?.preventDefault();
     const question = draft.trim();
-    if (!canAsk || streaming || question === '') return;
-    void ask(question);
+    if (!canSubmitQuestion || streaming || question === '') return;
+    void streamQuestion(question);
   }
 
   return (
@@ -150,7 +151,7 @@ export function ChatPanel({
               {strings.chat.emptyTitle}
             </h2>
             <p className="mt-3 max-w-[54ch] text-[13.5px] leading-[1.6] text-muted">
-              {canAsk ? strings.chat.emptyBody : strings.chat.noActiveSources}
+              {emptyBody}
             </p>
           </section>
         ) : (
@@ -189,7 +190,7 @@ export function ChatPanel({
             value={draft}
             onChange={setDraft}
             onSubmit={() => submit()}
-            disabled={!canAsk}
+            disabled={!canSubmitQuestion}
             maxLength={questionMaxLength}
           />
           <div className="flex items-center gap-2">
@@ -225,7 +226,7 @@ export function ChatPanel({
             ) : (
               <button
                 type="submit"
-                disabled={!canAsk || draft.trim() === ''}
+                disabled={!canSubmitQuestion || draft.trim() === ''}
                 aria-label={strings.conversation.send}
                 title={strings.conversation.send}
                 className="grid size-7 place-items-center rounded-md bg-text text-bg transition-opacity disabled:opacity-30"

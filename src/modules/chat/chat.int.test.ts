@@ -7,7 +7,7 @@ import { createVisitor } from '@/modules/visitors';
 import { closeDb } from '@/platform/db';
 import { resetDatabase } from '@/test/database';
 
-import { askQuestion, clearChat, failStaleMessages, listMessages, type ChatEvent } from '.';
+import { answerQuestion, clearChat, failStaleMessages, listMessages, type ChatEvent } from '.';
 
 let visitor: string;
 let otherVisitor: string;
@@ -38,7 +38,7 @@ async function ask(
   } = {},
 ): Promise<ChatEvent[]> {
   const events: ChatEvent[] = [];
-  await askQuestion(
+  await answerQuestion(
     { visitorId: options.visitorId ?? visitor, notebookId: notebook, question },
     {
       signal: options.signal ?? new AbortController().signal,
@@ -54,7 +54,7 @@ async function ask(
 const answerText = (events: ChatEvent[]) =>
   events.flatMap((e) => (e.type === 'text' ? [e.text] : [])).join('');
 
-describe('askQuestion', () => {
+describe('answerQuestion', () => {
   it('streams an answer whose Citations snapshot the cited Source and Passages', async () => {
     const sourceId = await addReady('Heizungsgesetz', 'Erster Absatz.\n\nZweiter Absatz.');
 

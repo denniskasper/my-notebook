@@ -1,10 +1,10 @@
 export {
-  askQuestion,
+  answerQuestion,
   QUESTION_MAX_LENGTH,
   questionSchema,
   type ChatErrorCode,
   type ChatEvent,
-} from './ask';
+} from './answer';
 export { citationSchema, toCitation, type Citation, type PromptDocument } from './citations';
 export type { MessagePart, TextPart } from './parts';
 export { trimHistory, type HistoryTurn } from './prompt';

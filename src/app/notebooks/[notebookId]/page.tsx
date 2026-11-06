@@ -12,7 +12,7 @@ import {
   type Source,
 } from '@/modules/sources';
 import { env } from '@/platform/env';
-import { ChatPanel, type MessageView } from '@/ui/chat';
+import { ChatPanel, type MessageView, type OpenCitation } from '@/ui/chat';
 import { AppShell, EmptyConversation, NotebookHeader, Sidebar } from '@/ui/shell';
 import {
   AddTextSourceDialog,
@@ -97,6 +97,13 @@ export default async function NotebookPage({ params, searchParams }: Props) {
   const sourceViews = sources.map(toSourceView);
   const active = sources.filter((source) => source.status === 'ready' && source.enabled).length;
   const notebookPath = `/notebooks/${notebook.id}`;
+  const openCitation: OpenCitation = readerParams.sourceId
+    ? { sourceId: readerParams.sourceId, ordinals: readerParams.ordinals }
+    : null;
+  const chatSourceSummary =
+    sources.length === 0
+      ? strings.notebook.noSources
+      : format(strings.notebook.activeSources, { count: active, total: sources.length });
 
   let reader = null;
   if (opened) {
@@ -176,17 +183,9 @@ export default async function NotebookPage({ params, searchParams }: Props) {
           notebookId={notebook.id}
           messages={messages.map(toMessageView)}
           existingSourceIds={sources.map((source) => source.id)}
-          openCitation={
-            readerParams.sourceId
-              ? { sourceId: readerParams.sourceId, ordinals: readerParams.ordinals }
-              : null
-          }
-          canAsk={active > 0}
-          sourceSummary={
-            sources.length === 0
-              ? strings.notebook.noSources
-              : format(strings.notebook.activeSources, { count: active, total: sources.length })
-          }
+          openCitation={openCitation}
+          canSubmitQuestion={active > 0}
+          sourceSummary={chatSourceSummary}
           questionMaxLength={QUESTION_MAX_LENGTH}
           clearChat={clearChatAction}
         />

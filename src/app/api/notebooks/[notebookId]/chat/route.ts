@@ -1,10 +1,10 @@
 import { z } from 'zod';
 
-import { askQuestion } from '@/modules/chat';
+import { answerQuestion, type ChatEvent } from '@/modules/chat';
 import { ensureVisitor } from '@/modules/visitors';
 import { encodeSseEvent, isSameOrigin, SSE_HEADERS } from '@/platform/http';
 import { requestLogger } from '@/platform/logging';
-import type { ChatEvent } from '@/ui/chat';
+import type { ChatEvent as WireChatEvent } from '@/ui/chat';
 
 // Streams for as long as the answer takes; never cached or prerendered.
 export const dynamic = 'force-dynamic';
@@ -22,10 +22,10 @@ export async function POST(request: Request, { params }: Context): Promise<Respo
 
   const visitorId = await ensureVisitor();
   const log = await requestLogger();
-  log.info({ event: 'chat.asked', notebookId: notebookId.data });
+  log.info({ event: 'chat.question_received', notebookId: notebookId.data });
 
   // Stopping (the client aborts the request) or leaving ends the LLM stream;
-  // askQuestion still stores the partial answer as `stopped`.
+  // answerQuestion still stores the partial answer as `stopped`.
   const stop = new AbortController();
   request.signal.addEventListener('abort', () => stop.abort(), { once: true });
 
@@ -34,10 +34,11 @@ export async function POST(request: Request, { params }: Context): Promise<Respo
     async start(controller) {
       let open = true;
       const send = (event: ChatEvent) => {
-        if (open) controller.enqueue(encoder.encode(encodeSseEvent(event)));
+        // `satisfies` keeps the module's events in step with the schema the client parses.
+        if (open) controller.enqueue(encoder.encode(encodeSseEvent(event satisfies WireChatEvent)));
       };
       try {
-        await askQuestion(
+        await answerQuestion(
           { visitorId, notebookId: notebookId.data, question: body.data.question },
           { signal: stop.signal, onEvent: send },
         );

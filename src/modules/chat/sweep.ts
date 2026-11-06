@@ -1,7 +1,6 @@
 import { logger } from '@/platform/logging';
 
-import { STREAMING_STALE_AFTER_MS } from './ask';
-import { failStaleMessages } from './store';
+import { failStaleMessages, STREAMING_STALE_AFTER_MS } from './store';
 
 const SWEEP_EVERY_MS = 60_000;
 
