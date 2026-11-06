@@ -150,9 +150,7 @@ export function ChatPanel({
             <h2 className="font-read text-[26px] leading-[1.2] font-normal tracking-[-0.01em] text-text">
               {strings.chat.emptyTitle}
             </h2>
-            <p className="mt-3 max-w-[54ch] text-[13.5px] leading-[1.6] text-muted">
-              {emptyBody}
-            </p>
+            <p className="mt-3 max-w-[54ch] text-[13.5px] leading-[1.6] text-muted">{emptyBody}</p>
           </section>
         ) : (
           <div
