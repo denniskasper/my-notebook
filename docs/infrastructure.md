@@ -4,56 +4,9 @@ How a change travels from an issue to production, where the network boundaries s
 
 ## System map
 
-```mermaid
-flowchart TB
-  laptop["Laptop & phone<br/>steer agents, review and merge PRs"]
+![System map: agents on an always-on server open pull requests on GitHub; GitHub Actions deploys the image to Dokploy over the tailnet; visitors reach the app only through the reverse proxy](infrastructure.svg)
 
-  subgraph develop["Develop: agent server, always on"]
-    direction LR
-    t3["T3 Code<br/>agent sessions"]
-    sandcastle["Sandcastle<br/>plan, implement, review, open PR"]
-    sandbox["Docker sandbox per issue<br/>Claude Code + Postgres 18"]
-    t3 --> sandcastle --> sandbox
-  end
-
-  subgraph ship["Ship: GitHub"]
-    direction LR
-    issues["Issues<br/>spec + ready-for-agent slices"]
-    pr["Pull request per slice<br/>CI-gated, squash-merged"]
-    ci["GitHub Actions<br/>check → test → security → image → deploy"]
-    ghcr["Container registry (GHCR)<br/>image tagged with the commit SHA, SBOM"]
-  end
-
-  subgraph run["Run: one self-hosted server, Dokploy on Docker Swarm"]
-    direction LR
-    proxy["Reverse proxy (TLS)<br/>the only public entry point"]
-    app["App container (Next.js)<br/>health check, start-first, auto rollback"]
-    dokploy["Dokploy API<br/>tailnet only"]
-    db[("Postgres 18")]
-  end
-
-  visitors["Visitors"]
-  uptime["Uptime check<br/>on another host"]
-  anthropic["Anthropic API"]
-
-  laptop -.->|steers, over the tailnet| t3
-  sandcastle -->|reads| issues
-  sandcastle -->|opens PR| pr
-  pr -->|merge to main| ci
-  ci -->|pushes image| ghcr
-  ci -.->|deploys, over the tailnet| dokploy
-  ghcr -->|pulled by| dokploy
-  dokploy -->|rolls out| app
-  visitors ==>|HTTPS| proxy
-  uptime ==>|polls /api/health| proxy
-  ci ==>|polls /api/health for the commit| proxy
-  proxy --> app
-  app --> db
-  app -->|production API key| anthropic
-  sandbox -->|Claude subscription, development only| anthropic
-```
-
-Arrows: dotted `-.->` is private traffic over the tailnet, thick `==>` is public HTTPS into the server, plain `-->` is an outbound call or an internal hop.
+Dashed blue arrows are private traffic over the tailnet, orange arrows are public HTTPS into the server, thin black arrows are outbound calls or internal hops. To change the drawing, open [`infrastructure.excalidraw`](infrastructure.excalidraw) in [Excalidraw](https://excalidraw.com) and export it again as SVG with "Embed scene" off and the background on.
 
 - **One public door.** Visitors, the uptime check and CI's health polling all come in through the reverse proxy. Nothing else on the server answers the internet.
 - **Deploys travel over the tailnet.** The deploy job joins the tailnet as a short-lived node. An access rule lets that node reach the Dokploy API and nothing else.
