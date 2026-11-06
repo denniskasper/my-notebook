@@ -41,4 +41,22 @@ describe('parseEnv', () => {
   it('rejects an unknown log level', () => {
     expect(() => parseEnv({ ...base, LOG_LEVEL: 'loud' })).toThrow(/LOG_LEVEL/);
   });
+
+  it('defaults to the fake LLM and an 80K Source token cap', () => {
+    const env = parseEnv(base);
+    expect(env.LLM_MODE).toBe('fake');
+    expect(env.SOURCE_TOKEN_CAP).toBe(80_000);
+  });
+
+  it('reads the Source token cap as a positive integer', () => {
+    expect(parseEnv({ ...base, SOURCE_TOKEN_CAP: '1000' }).SOURCE_TOKEN_CAP).toBe(1000);
+    expect(() => parseEnv({ ...base, SOURCE_TOKEN_CAP: '0' })).toThrow(/SOURCE_TOKEN_CAP/);
+    expect(() => parseEnv({ ...base, SOURCE_TOKEN_CAP: 'viel' })).toThrow(/SOURCE_TOKEN_CAP/);
+  });
+
+  it('requires ANTHROPIC_API_KEY for the real LLM', () => {
+    expect(() => parseEnv({ ...base, LLM_MODE: 'real' })).toThrow(/ANTHROPIC_API_KEY/);
+    expect(parseEnv({ ...base, LLM_MODE: 'real', ANTHROPIC_API_KEY: 'key' }).LLM_MODE).toBe('real');
+    expect(() => parseEnv({ ...base, LLM_MODE: 'live' })).toThrow(/LLM_MODE/);
+  });
 });

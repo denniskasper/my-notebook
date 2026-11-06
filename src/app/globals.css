@@ -78,3 +78,36 @@
   scrollbar-width: thin;
   scrollbar-color: var(--color-line) transparent;
 }
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% + 6px));
+  }
+}
+
+/* A processing Source: a faint hairline that breathes under its title. */
+@keyframes processing-pulse {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: scaleX(0.35);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scaleX(1);
+  }
+}
+
+/* A Passage a Citation points to: the amber wash settles once. */
+@keyframes passage-highlight {
+  from {
+    background-color: rgb(230 195 92 / 0.32);
+  }
+}

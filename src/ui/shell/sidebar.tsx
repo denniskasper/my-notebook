@@ -1,5 +1,6 @@
 import { BookOpen, ChevronDown, Plus } from 'lucide-react';
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 
 import { SubmitButton } from '@/ui/components/submit-button';
 import { cn } from '@/ui/cn';
@@ -11,10 +12,17 @@ type Props = {
   notebooks: SidebarNotebook[];
   activeNotebookId?: string;
   createNotebook: () => Promise<void>;
+  /** The open Notebook's Sources and the way to add one, nested under it. */
+  activeNotebookSources?: ReactNode;
 };
 
 /** Notebook list; the open Notebook unfolds to show its Sources. */
-export function Sidebar({ notebooks, activeNotebookId, createNotebook }: Props) {
+export function Sidebar({
+  notebooks,
+  activeNotebookId,
+  createNotebook,
+  activeNotebookSources,
+}: Props) {
   return (
     <>
       <Link
@@ -53,16 +61,9 @@ export function Sidebar({ notebooks, activeNotebookId, createNotebook }: Props) 
                   )}
                   <span className="truncate">{notebook.title}</span>
                 </Link>
-                {active && (
+                {active && activeNotebookSources && (
                   <div className="mb-1.5 ml-[18px] border-l border-line pl-1">
-                    {/* Inert until the Sources slice: adding a Source is not built yet. */}
-                    <button
-                      type="button"
-                      className="flex w-full items-center gap-2 rounded-[5px] px-2 py-1 text-muted hover:bg-hover hover:text-text"
-                    >
-                      <Plus size={13} aria-hidden />
-                      {strings.sidebar.addSource}
-                    </button>
+                    {activeNotebookSources}
                   </div>
                 )}
               </li>

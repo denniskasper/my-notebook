@@ -12,4 +12,6 @@ export async function register() {
   }
   const { logger } = await import('@/platform/logging');
   logger().info({ event: 'boot' }, 'server starting');
+  const { startStaleSourceSweep } = await import('@/modules/sources');
+  startStaleSourceSweep();
 }

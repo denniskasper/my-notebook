@@ -62,12 +62,38 @@ export const strings = {
     emptyBody:
       'Antworten stützen sich nur auf deine Quellen. Füge einen Text, ein PDF oder eine Webseite hinzu, dann kannst du Fragen stellen.',
     addSource: 'Quelle hinzufügen',
-    sourceKinds: ['Text einfügen', 'PDF hochladen', 'Webseite'],
     composerPlaceholder: 'Frage zu deinen Quellen stellen …',
     composerDisabled: 'Füge zuerst eine Quelle hinzu.',
     modeChat: 'Chat',
     modeAgent: 'Agent',
     send: 'Senden',
+  },
+  sources: {
+    kinds: { text: 'Text einfügen', pdf: 'PDF hochladen', url: 'Webseite' },
+    addText: {
+      title: 'Text einfügen',
+      description: 'Jeder Absatz wird zu einer Passage, auf die Antworten verweisen können.',
+      titleLabel: 'Titel',
+      titlePlaceholder: 'z. B. Protokoll der Sitzung vom 3. März',
+      textLabel: 'Text',
+      textPlaceholder: 'Text hier einfügen …',
+      submit: 'Quelle hinzufügen',
+      cancel: 'Abbrechen',
+    },
+    enabledLabel: 'In Antworten verwenden',
+    processing: 'Wird verarbeitet …',
+    retry: 'Erneut versuchen',
+    delete: 'Quelle löschen',
+    deleteConfirm: '„{title}“ endgültig löschen?',
+  },
+  reader: {
+    label: 'Quellenleser',
+    close: 'Quelle schließen',
+    passageCount: { one: '{count} Passage', other: '{count} Passagen' },
+    tokenCount: '{count} Tokens',
+    processing: 'Diese Quelle wird gerade verarbeitet.',
+    disabled: 'Ausgeschaltet: Antworten berücksichtigen diese Quelle nicht.',
+    notFound: 'Diese Quelle gibt es nicht mehr. Wähle eine andere in der Seitenleiste.',
   },
   drawer: {
     label: 'Seitenbereich',
@@ -90,12 +116,28 @@ export const strings = {
     codes: {
       invalid_title: 'Der Titel muss zwischen 1 und {max} Zeichen lang sein.',
       not_found: 'Dieses Notebook gibt es nicht mehr.',
+      source_not_found: 'Diese Quelle gibt es nicht mehr.',
+      invalid_source_title: 'Gib einen Titel mit höchstens {max} Zeichen ein.',
+      invalid_source_text: 'Füge einen Text mit höchstens {max} Zeichen ein.',
+      token_cap_exceeded:
+        'Zu viel Text: Die aktiven Quellen eines Notebooks dürfen zusammen höchstens {cap} Tokens umfassen. Schalte eine andere Quelle aus oder kürze den Text.',
+      interrupted: 'Die Verarbeitung wurde unterbrochen.',
+      token_count_failed: 'Die Länge des Textes ließ sich nicht bestimmen.',
       unknown: 'Das hat nicht geklappt. Bitte versuch es noch einmal.',
     },
   },
 } as const;
 
 export type ErrorCode = keyof typeof strings.errors.codes;
+
+/** Narrows a stored code (e.g. `sources.error_code`) to a known one; anything else is `unknown`. */
+export function toErrorCode(code: string | null): ErrorCode {
+  return code !== null && isErrorCode(code) ? code : 'unknown';
+}
+
+function isErrorCode(code: string): code is ErrorCode {
+  return Object.hasOwn(strings.errors.codes, code);
+}
 
 /** The text for a server error code, with `{placeholders}` filled from `values`. */
 export function errorMessage(

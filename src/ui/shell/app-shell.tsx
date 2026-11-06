@@ -14,21 +14,32 @@ type Props = {
   sidebar: ReactNode;
   header: ReactNode;
   children: ReactNode;
-  /** Shows the Source / Studio / Notes drawer (only inside a Notebook). */
-  withDrawer?: boolean;
+  /** The Source / Studio / Notes drawer (only inside a Notebook). */
+  drawer?: { reader: ReactNode; sourceCount: number; readerKey: string | null };
 };
 
 /**
  * Variant D: Notebook sidebar, conversation centre, Source / Studio / Notes drawer.
  * Below `md` the sidebar, below `lg` the drawer become overlays.
  */
-export function AppShell({ sidebar, header, children, withDrawer = false }: Props) {
+export function AppShell({ sidebar, header, children, drawer }: Props) {
+  const withDrawer = drawer !== undefined;
   const pathname = usePathname();
   // The mobile sidebar closes itself after navigating: it is open only for the path it was opened on.
   const [sidebarOpenOn, setSidebarOpenOn] = useState<string | null>(null);
   const sidebarOpen = sidebarOpenOn === pathname;
-  // null = layout default (open on wide screens, closed on narrow ones).
-  const [drawerOpen, setDrawerOpen] = useState<boolean | null>(null);
+  // null = layout default (open on wide screens, closed on narrow ones). Opening a Source
+  // opens the drawer too (and closes the mobile sidebar it was opened from).
+  const readerKey = drawer?.readerKey ?? null;
+  const [drawerOpen, setDrawerOpen] = useState<boolean | null>(readerKey ? true : null);
+  const [shownReaderKey, setShownReaderKey] = useState(readerKey);
+  if (readerKey !== shownReaderKey) {
+    setShownReaderKey(readerKey);
+    if (readerKey) {
+      setDrawerOpen(true);
+      setSidebarOpenOn(null);
+    }
+  }
   const drawerVisible = drawerOpen ?? 'default';
 
   return (
@@ -78,7 +89,7 @@ export function AppShell({ sidebar, header, children, withDrawer = false }: Prop
         {children}
       </main>
 
-      {withDrawer && (
+      {drawer && (
         <aside
           aria-label={strings.drawer.label}
           className={cn(
@@ -90,6 +101,9 @@ export function AppShell({ sidebar, header, children, withDrawer = false }: Prop
           )}
         >
           <Drawer
+            reader={drawer.reader}
+            sourceCount={drawer.sourceCount}
+            readerKey={drawer.readerKey}
             closeButton={
               <Button
                 variant="ghost"

@@ -1,20 +1,35 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/ui/components/tabs';
 import { strings } from '@/ui/strings';
 
-/** Source reader, Studio outputs and Notes. Empty until the later slices fill them. */
-export function Drawer({ closeButton }: { closeButton: ReactNode }) {
+type Props = {
+  closeButton: ReactNode;
+  /** The Source reader, or null when no Source is open. */
+  reader: ReactNode;
+  sourceCount: number;
+  /** Changes whenever a Source (or Passage) is opened; brings the Sources tab to the front. */
+  readerKey: string | null;
+};
+
+/** Source reader, Studio outputs and Notes. Studio and Notes wait for their slices. */
+export function Drawer({ closeButton, reader, sourceCount, readerKey }: Props) {
   const { tabs } = strings.drawer;
+  const [tab, setTab] = useState('sources');
+  const [shownKey, setShownKey] = useState(readerKey);
+  if (readerKey !== shownKey) {
+    setShownKey(readerKey);
+    if (readerKey) setTab('sources');
+  }
   return (
-    <Tabs defaultValue="sources" className="flex min-h-0 flex-1 flex-col">
+    <Tabs value={tab} onValueChange={setTab} className="flex min-h-0 flex-1 flex-col">
       <div className="flex h-[42px] shrink-0 items-center border-b border-line px-2">
         <TabsList className="flex-1">
           <TabsTrigger value="sources">
             {tabs.sources}
-            <span className="ml-0.5 text-faint">0</span>
+            <span className="ml-0.5 text-faint tabular-nums">{sourceCount}</span>
           </TabsTrigger>
           <TabsTrigger value="studio">{tabs.studio}</TabsTrigger>
           <TabsTrigger value="notes">{tabs.notes}</TabsTrigger>
@@ -22,7 +37,7 @@ export function Drawer({ closeButton }: { closeButton: ReactNode }) {
         {closeButton}
       </div>
       <TabsContent value="sources">
-        <EmptyTab>{strings.drawer.sourcesEmpty}</EmptyTab>
+        {reader ?? <EmptyTab>{strings.drawer.sourcesEmpty}</EmptyTab>}
       </TabsContent>
       <TabsContent value="studio">
         <EmptyTab>{strings.drawer.studioEmpty}</EmptyTab>

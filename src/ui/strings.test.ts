@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { errorMessage, format, formatNumber, plural, strings } from './strings';
+import { errorMessage, format, formatNumber, plural, strings, toErrorCode } from './strings';
 
 describe('format', () => {
   it('fills named placeholders', () => {
@@ -52,5 +52,18 @@ describe('errorMessage', () => {
     expect(errorMessage('invalid_title', { max: 120 })).toBe(
       'Der Titel muss zwischen 1 und 120 Zeichen lang sein.',
     );
+  });
+});
+
+describe('toErrorCode', () => {
+  it('keeps a known code and maps anything else to unknown', () => {
+    expect(toErrorCode('token_cap_exceeded')).toBe('token_cap_exceeded');
+    expect(toErrorCode('scanned_pdf_from_the_future')).toBe('unknown');
+    expect(toErrorCode('toString')).toBe('unknown');
+    expect(toErrorCode(null)).toBe('unknown');
+  });
+
+  it('names the token cap in the German message', () => {
+    expect(errorMessage('token_cap_exceeded', { cap: 80_000 })).toContain('80.000 Tokens');
   });
 });
