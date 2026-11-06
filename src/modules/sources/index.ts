@@ -11,11 +11,13 @@ export {
   deleteSource,
   failStaleSources,
   getSourceWithPassages,
+  listPromptSources,
   listSources,
   processSource,
   retrySource,
   setSourceEnabled,
   type Passage,
+  type PromptSource,
   type SetEnabledResult,
   type Source,
 } from './store';

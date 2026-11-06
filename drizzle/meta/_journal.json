@@ -15,6 +15,13 @@
       "when": 1793969265745,
       "tag": "0001_sources_and_passages",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794001704815,
+      "tag": "0002_chat_and_usage",
+      "breakpoints": true
     }
   ]
 }

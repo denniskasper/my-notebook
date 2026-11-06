@@ -14,4 +14,6 @@ export async function register() {
   logger().info({ event: 'boot' }, 'server starting');
   const { startStaleSourceSweep } = await import('@/modules/sources');
   startStaleSourceSweep();
+  const { startStaleMessageSweep } = await import('@/modules/chat');
+  startStaleMessageSweep();
 }

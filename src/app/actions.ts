@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { z } from 'zod';
 
+import { clearChat } from '@/modules/chat';
 import {
   createNotebook,
   deleteNotebook,
@@ -137,4 +138,14 @@ export async function deleteSourceAction(formData: FormData): Promise<void> {
     (await requestLogger()).info({ event: 'source.deleted', sourceId });
   }
   revalidatePath(`/notebooks/${notebookId}`);
+}
+
+export async function clearChatAction(formData: FormData): Promise<void> {
+  const input = notebookIdSchema.safeParse(Object.fromEntries(formData));
+  if (!input.success) return;
+  const visitorId = await ensureVisitor();
+  if (await clearChat(visitorId, input.data.notebookId)) {
+    (await requestLogger()).info({ event: 'chat.cleared', notebookId: input.data.notebookId });
+  }
+  revalidatePath(`/notebooks/${input.data.notebookId}`);
 }

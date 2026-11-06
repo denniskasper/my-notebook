@@ -248,3 +248,48 @@ export async function failStaleSources(input: { olderThan: Date }): Promise<numb
     .returning({ id: sources.id });
   return rows.length;
 }
+
+/** An enabled, ready Source with its Passages: what Chat answers are grounded in. */
+export type PromptSource = {
+  id: string;
+  title: string;
+  tokenCount: number;
+  passages: { ordinal: number; text: string }[];
+};
+
+/** The Notebook's enabled, ready Sources in the order they were added, with their Passages in order. */
+export async function listPromptSources(
+  visitorId: string,
+  notebookId: string,
+): Promise<PromptSource[]> {
+  if (!(await ownsNotebook(visitorId, notebookId))) return [];
+  const rows = await db()
+    .select({
+      id: sources.id,
+      title: sources.title,
+      tokenCount: sources.tokenCount,
+      ordinal: passages.ordinal,
+      text: passages.text,
+    })
+    .from(sources)
+    .innerJoin(passages, eq(passages.sourceId, sources.id))
+    .where(
+      and(
+        eq(sources.notebookId, notebookId),
+        eq(sources.enabled, true),
+        eq(sources.status, 'ready'),
+      ),
+    )
+    .orderBy(asc(sources.createdAt), asc(sources.id), asc(passages.ordinal));
+
+  const byId = new Map<string, PromptSource>();
+  for (const row of rows) {
+    let source = byId.get(row.id);
+    if (!source) {
+      source = { id: row.id, title: row.title, tokenCount: row.tokenCount ?? 0, passages: [] };
+      byId.set(row.id, source);
+    }
+    source.passages.push({ ordinal: row.ordinal, text: row.text });
+  }
+  return [...byId.values()];
+}

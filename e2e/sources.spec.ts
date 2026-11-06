@@ -28,7 +28,7 @@ test('a Visitor adds a text Source, watches it get ready and reads it in the rea
   const source = sidebar.getByRole('listitem').filter({ hasText: title });
   await expect(source.getByRole('switch', { name: strings.sources.enabledLabel })).toBeChecked();
   await expect(
-    page.getByText(format(strings.notebook.activeSources, { count: 1, total: 1 })),
+    page.getByText(format(strings.notebook.activeSources, { count: 1, total: 1 })).first(),
   ).toBeVisible();
 
   await source.getByRole('link', { name: title }).click();
@@ -44,6 +44,6 @@ test('a Visitor adds a text Source, watches it get ready and reads it in the rea
 
   await source.getByRole('switch', { name: strings.sources.enabledLabel }).click();
   await expect(
-    page.getByText(format(strings.notebook.activeSources, { count: 0, total: 1 })),
+    page.getByText(format(strings.notebook.activeSources, { count: 0, total: 1 })).first(),
   ).toBeVisible();
 });
