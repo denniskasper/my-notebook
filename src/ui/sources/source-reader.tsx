@@ -1,6 +1,6 @@
 'use client';
 
-import { X } from 'lucide-react';
+import { ExternalLink, X } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useRef } from 'react';
 
@@ -44,6 +44,7 @@ export function SourceReader({ source, passages, highlight, closeHref, limits }:
           <h2 className="font-read text-[19px] leading-[1.3] font-normal tracking-[-0.005em] text-text">
             {source.title}
           </h2>
+          {source.url && <OriginLink url={source.url} />}
           <p className="mt-1 text-[11.5px] text-faint">
             {plural(passages.length, strings.reader.passageCount)}
             {pageCount > 0 && <> {plural(pageCount, strings.reader.pageCount)}</>}
@@ -121,6 +122,29 @@ function PageMarker({ page, first }: { page: number; first: boolean }) {
       {format(strings.reader.page, { n: page })}
       <span aria-hidden className="h-px flex-1 bg-line-soft" />
     </p>
+  );
+}
+
+/** The web page a URL Source was fetched from, shown as host and path. */
+function OriginLink({ url }: { url: string }) {
+  const parsed = URL.parse(url);
+  // Stored URLs were checked as http(s) when added; anything else is not linked.
+  if (!parsed || (parsed.protocol !== 'http:' && parsed.protocol !== 'https:')) return null;
+  const path = parsed.pathname === '/' ? '' : parsed.pathname;
+  return (
+    <a
+      href={parsed.href}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={strings.reader.openOrigin}
+      className="group/origin mt-1.5 flex max-w-full items-center gap-1.5 text-[12px] text-muted hover:text-soft focus-visible:text-soft"
+    >
+      <span className="truncate underline decoration-line underline-offset-[3px] group-hover/origin:decoration-muted">
+        {parsed.host}
+        {path}
+      </span>
+      <ExternalLink size={11} aria-hidden className="shrink-0" />
+    </a>
   );
 }
 

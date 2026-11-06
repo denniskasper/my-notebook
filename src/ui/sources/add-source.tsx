@@ -1,6 +1,6 @@
 'use client';
 
-import { FileText, Plus, Type, type LucideProps } from 'lucide-react';
+import { FileText, Globe, Plus, Type, type LucideProps } from 'lucide-react';
 import { useActionState, useState } from 'react';
 
 import { Button } from '@/ui/components/button';
@@ -23,25 +23,27 @@ import type { ActionResult } from '@/ui/shell';
 import { errorMessage, strings } from '@/ui/strings';
 
 import { AddPdfSourceForm } from './add-pdf-source-form';
+import { AddUrlSourceForm } from './add-url-source-form';
 import type { SourceLimits } from './types';
 
 type Props = {
   notebookId: string;
   limits: SourceLimits;
   addTextSource: (previous: ActionResult, formData: FormData) => Promise<ActionResult>;
+  addUrlSource: (previous: ActionResult, formData: FormData) => Promise<ActionResult>;
   /** Where Sources are added from: the sidebar under the Notebook, or the empty conversation. */
   placement: 'sidebar' | 'conversation';
 };
 
-type Kind = 'text' | 'pdf';
+type Kind = 'text' | 'pdf' | 'url';
 
-const KIND_ICONS = { text: Type, pdf: FileText } as const;
+const KIND_ICONS = { text: Type, pdf: FileText, url: Globe } as const;
 
 /**
  * Adds a Source: in the sidebar a menu of kinds, in the empty conversation one
  * button per kind. Each kind opens its dialog.
  */
-export function AddSource({ placement, notebookId, limits, addTextSource }: Props) {
+export function AddSource({ placement, notebookId, limits, addTextSource, addUrlSource }: Props) {
   const [open, setOpen] = useState<Kind | null>(null);
   const close = () => setOpen(null);
 
@@ -91,13 +93,21 @@ export function AddSource({ placement, notebookId, limits, addTextSource }: Prop
           {open === 'pdf' && (
             <AddPdfSourceForm notebookId={notebookId} limits={limits} onAdded={close} />
           )}
+          {open === 'url' && (
+            <AddUrlSourceForm
+              notebookId={notebookId}
+              limits={limits}
+              addUrlSource={addUrlSource}
+              onAdded={close}
+            />
+          )}
         </DialogContent>
       </Dialog>
     </>
   );
 }
 
-const KINDS: readonly Kind[] = ['text', 'pdf'];
+const KINDS: readonly Kind[] = ['text', 'pdf', 'url'];
 
 function KindIcon({ kind, ...props }: { kind: Kind } & LucideProps) {
   const Icon = KIND_ICONS[kind];
@@ -109,7 +119,7 @@ function AddTextSourceForm({
   limits,
   addTextSource,
   onAdded,
-}: Omit<Props, 'placement'> & { onAdded: () => void }) {
+}: Omit<Props, 'placement' | 'addUrlSource'> & { onAdded: () => void }) {
   const [result, action] = useActionState<ActionResult, FormData>(async (previous, formData) => {
     const next = await addTextSource(previous, formData);
     if (next?.ok) onAdded();

@@ -92,4 +92,22 @@ describe('parseEnv', () => {
     expect(() => parseEnv(production)).not.toThrow();
     expect(() => parseEnv({ ...base, CLAUDE_CODE_OAUTH_TOKEN: 'token' })).not.toThrow();
   });
+
+  it('reads the test-only loopback port for the URL fetcher, refused with the real LLM', () => {
+    expect(parseEnv(base).URL_FETCH_TEST_LOOPBACK_PORT).toBeUndefined();
+    expect(
+      parseEnv({ ...base, URL_FETCH_TEST_LOOPBACK_PORT: '3101' }).URL_FETCH_TEST_LOOPBACK_PORT,
+    ).toBe(3101);
+    expect(() => parseEnv({ ...base, URL_FETCH_TEST_LOOPBACK_PORT: '0' })).toThrow(
+      /URL_FETCH_TEST_LOOPBACK_PORT/,
+    );
+    expect(() =>
+      parseEnv({
+        ...base,
+        LLM_MODE: 'real',
+        ANTHROPIC_API_KEY: 'key',
+        URL_FETCH_TEST_LOOPBACK_PORT: '3101',
+      }),
+    ).toThrow(/URL_FETCH_TEST_LOOPBACK_PORT/);
+  });
 });

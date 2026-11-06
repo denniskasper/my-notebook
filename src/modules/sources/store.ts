@@ -5,13 +5,22 @@ import { db, type Database } from '@/platform/db';
 import { env } from '@/platform/env';
 import { llm } from '@/platform/llm';
 import { logger } from '@/platform/logging';
+import { checkWebPageUrl, fetchWebPage } from '@/platform/web';
 
-import { sourceTextSchema, sourceTitleSchema, type SourceErrorCode } from './input';
+import {
+  sourceTextSchema,
+  sourceTitleSchema,
+  sourceUrlSchema,
+  titleFromPage,
+  titleFromUrl,
+  type SourceErrorCode,
+} from './input';
 import { splitIntoPassages, type PassageDraft } from './passages';
 import { extractPdfPassages, titleFromFileName, type PdfError } from './pdf';
 import type { PdfPassageDraft } from './pdf-passages';
 import { passages, sources } from './schema';
 import { fitsTokenCap } from './token-cap';
+import { extractArticle } from './web-page';
 
 export type Source = typeof sources.$inferSelect;
 export type Passage = Omit<typeof passages.$inferSelect, 'sourceId'>;
@@ -110,6 +119,37 @@ async function insertSource(
   });
 }
 
+export type AddUrlSourceResult =
+  | { ok: true; source: Source }
+  | { ok: false; error: 'invalid_url' | 'url_not_allowed' | 'not_found' };
+
+/**
+ * Adds a web page as a `processing` Source, titled after its address until
+ * `processSource` fetches it. A URL that is malformed, not http(s) or an IP
+ * address that must not be fetched is refused right away.
+ */
+export async function addUrlSource(
+  visitorId: string,
+  notebookId: string,
+  input: { url: string },
+): Promise<AddUrlSourceResult> {
+  const text = sourceUrlSchema.safeParse(input.url);
+  if (!text.success) return { ok: false, error: 'invalid_url' };
+  const refused = checkWebPageUrl(text.data);
+  if (refused !== null) {
+    return { ok: false, error: refused === 'invalid_url' ? 'invalid_url' : 'url_not_allowed' };
+  }
+  if (!(await ownsNotebook(visitorId, notebookId))) return { ok: false, error: 'not_found' };
+
+  const url = new URL(text.data);
+  const [source] = await db()
+    .insert(sources)
+    .values({ notebookId, kind: 'url', title: titleFromUrl(url), url: url.href })
+    .returning();
+  if (!source) throw new Error('Source insert returned no row');
+  return { ok: true, source };
+}
+
 /**
  * Works a `processing` Source to `ready` (token count set, within the cap) or
  * `failed` with an error code. Runs in-process after the request that added it.
@@ -117,15 +157,20 @@ async function insertSource(
  * failed as `interrupted` by the sweep, whose outcome stands.
  */
 export async function processSource(sourceId: string): Promise<Source | null> {
-  const texts = await db()
-    .select({ text: passages.text })
-    .from(passages)
-    .where(eq(passages.sourceId, sourceId))
-    .orderBy(asc(passages.ordinal));
+  let texts = await passageTexts(sourceId);
+  // A web page without Passages hasn't been fetched yet (or its fetch failed and is retried).
+  if (texts.length === 0) {
+    const fetched = await fetchPassages(sourceId);
+    if (fetched === null) return skipped(sourceId);
+    if ('errorCode' in fetched) {
+      return finish(db(), sourceId, { status: 'failed', errorCode: fetched.errorCode });
+    }
+    texts = fetched.texts;
+  }
 
   let tokenCount: number;
   try {
-    tokenCount = await llm().countTokens(texts.map((row) => row.text).join('\n\n'));
+    tokenCount = await llm().countTokens(texts.join('\n\n'));
   } catch (error) {
     logger().warn({ event: 'source.token_count_failed', sourceId, err: error });
     return finish(db(), sourceId, { status: 'failed', errorCode: 'token_count_failed' });
@@ -145,6 +190,49 @@ export async function processSource(sourceId: string): Promise<Source | null> {
         : { status: 'failed', errorCode: 'token_cap_exceeded', tokenCount },
     );
   });
+}
+
+async function passageTexts(sourceId: string): Promise<string[]> {
+  const rows = await db()
+    .select({ text: passages.text })
+    .from(passages)
+    .where(eq(passages.sourceId, sourceId))
+    .orderBy(asc(passages.ordinal));
+  return rows.map((row) => row.text);
+}
+
+/**
+ * Fetches a URL Source's page and stores its article as Passages, titled after
+ * the page. Null if the Source is gone or no longer processing.
+ */
+async function fetchPassages(
+  sourceId: string,
+): Promise<{ texts: string[] } | { errorCode: SourceErrorCode } | null> {
+  const [source] = await db().select().from(sources).where(eq(sources.id, sourceId));
+  if (!source || source.status !== 'processing') return null;
+  if (source.kind !== 'url' || source.url === null) return { texts: [] };
+
+  const fetched = await fetchWebPage(source.url);
+  if (!fetched.ok) {
+    logger().info({ event: 'source.fetch_failed', sourceId, errorCode: fetched.error });
+    return { errorCode: fetched.error };
+  }
+  const article = extractArticle(fetched.page.body, fetched.page.contentType, fetched.page.url);
+  if (!article) return { errorCode: 'url_no_content' };
+  const drafts = splitIntoPassages(article.text);
+  if (drafts.length === 0) return { errorCode: 'url_no_content' };
+
+  const stored = await db().transaction(async (tx) => {
+    const [row] = await tx
+      .update(sources)
+      .set({ title: article.title ? titleFromPage(article.title) : source.title })
+      .where(and(eq(sources.id, sourceId), eq(sources.status, 'processing')))
+      .returning({ id: sources.id });
+    if (!row) return false;
+    await tx.insert(passages).values(drafts.map((draft) => ({ sourceId, ...draft })));
+    return true;
+  });
+  return stored ? { texts: drafts.map((draft) => draft.text) } : null;
 }
 
 type Outcome =

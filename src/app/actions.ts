@@ -22,6 +22,7 @@ import {
 } from '@/modules/notes';
 import {
   addTextSource,
+  addUrlSource,
   deleteSource,
   processSource,
   retrySource,
@@ -115,6 +116,24 @@ export async function addTextSourceAction(
   if (!source) return { ok: false, error: 'not_found' };
   (await requestLogger()).info({ event: 'source.added', sourceId: source.id, kind: 'text' });
   processAfterResponse(source.id);
+  revalidatePath(`/notebooks/${notebookId}`);
+  return { ok: true };
+}
+
+const addUrlSourceSchema = notebookIdSchema.extend({ url: z.string() });
+
+export async function addUrlSourceAction(
+  _previous: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  const input = addUrlSourceSchema.safeParse(Object.fromEntries(formData));
+  if (!input.success) return { ok: false, error: 'not_found' };
+  const { notebookId, url } = input.data;
+  const visitorId = await ensureVisitor();
+  const result = await addUrlSource(visitorId, notebookId, { url });
+  if (!result.ok) return { ok: false, error: result.error };
+  (await requestLogger()).info({ event: 'source.added', sourceId: result.source.id, kind: 'url' });
+  processAfterResponse(result.source.id);
   revalidatePath(`/notebooks/${notebookId}`);
   return { ok: true };
 }

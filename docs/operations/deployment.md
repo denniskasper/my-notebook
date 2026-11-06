@@ -56,6 +56,8 @@ Set on the running container. Names only; values live in the deployment platform
 | `NEW_VISITORS_PER_IP_PER_DAY` | no | New Visitors per IP (hashed) per day; `5` |
 | `CLAUDE_CODE_OAUTH_TOKEN` | **never** | The server refuses to start in production when it is set |
 
+Never set `URL_FETCH_TEST_LOOPBACK_PORT` on a deployment: it lets the guarded URL fetcher reach one loopback port and exists only for the integration and e2e fixtures (the server refuses it with `LLM_MODE=real`).
+
 An invalid environment makes the server exit at start instead of serving errors.
 
 ### CI smoke check

@@ -9,6 +9,8 @@ export type SourceView = {
   errorCode: ErrorCode | null;
   enabled: boolean;
   tokenCount: number | null;
+  /** Where a web page Source was fetched from; null for other kinds. */
+  url: string | null;
 };
 
 export type PassageView = { ordinal: number; text: string; page: number | null };
@@ -19,4 +21,5 @@ export type SourceLimits = {
   titleMax: number;
   textMax: number;
   pdfMaxBytes: number;
+  urlMax: number;
 };

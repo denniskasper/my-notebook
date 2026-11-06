@@ -1,7 +1,6 @@
-import { ArrowUp, Globe } from 'lucide-react';
+import { ArrowUp } from 'lucide-react';
 import type { ReactNode } from 'react';
 
-import { KIND_BUTTON } from '@/ui/components/kind-button';
 import { strings } from '@/ui/strings';
 
 /** The conversation centre of a Notebook without Sources: an invitation to add one. */
@@ -19,11 +18,6 @@ export function EmptyConversation({ addSource }: { addSource: ReactNode }) {
           </p>
           <div className="mt-7 flex flex-wrap gap-2">
             {addSource}
-            {/* Inert until the web page slice. */}
-            <button type="button" className={KIND_BUTTON}>
-              <Globe size={14} aria-hidden className="text-muted" />
-              {strings.sources.kinds.url}
-            </button>
           </div>
         </section>
       </div>

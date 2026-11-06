@@ -11,6 +11,7 @@ import {
   PDF_MAX_BYTES,
   SOURCE_TEXT_MAX_LENGTH,
   SOURCE_TITLE_MAX_LENGTH,
+  SOURCE_URL_MAX_LENGTH,
   type Source,
 } from '@/modules/sources';
 import { buildInfo } from '@/platform/build';
@@ -30,6 +31,7 @@ import { format, strings, toErrorCode } from '@/ui/strings';
 
 import {
   addTextSourceAction,
+  addUrlSourceAction,
   clearChatAction,
   createNoteAction,
   createNotebookAction,
@@ -74,6 +76,7 @@ function toSourceView(source: Source): SourceView {
     errorCode: source.errorCode === null ? null : toErrorCode(source.errorCode),
     enabled: source.enabled,
     tokenCount: source.tokenCount,
+    url: source.url,
   };
 }
 
@@ -123,6 +126,7 @@ export default async function NotebookPage({ params, searchParams }: Props) {
     titleMax: SOURCE_TITLE_MAX_LENGTH,
     textMax: SOURCE_TEXT_MAX_LENGTH,
     pdfMaxBytes: PDF_MAX_BYTES,
+    urlMax: SOURCE_URL_MAX_LENGTH,
   };
   const sourceViews = sources.map(toSourceView);
   const active = sources.filter((source) => source.status === 'ready' && source.enabled).length;
@@ -209,6 +213,7 @@ export default async function NotebookPage({ params, searchParams }: Props) {
                 notebookId={notebook.id}
                 limits={limits}
                 addTextSource={addTextSourceAction}
+                addUrlSource={addUrlSourceAction}
               />
             </>
           }
@@ -233,6 +238,7 @@ export default async function NotebookPage({ params, searchParams }: Props) {
               notebookId={notebook.id}
               limits={limits}
               addTextSource={addTextSourceAction}
+              addUrlSource={addUrlSourceAction}
             />
           }
         />
