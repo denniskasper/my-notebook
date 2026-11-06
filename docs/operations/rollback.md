@@ -17,7 +17,7 @@ The automatic rollback only catches releases that fail their health check. A rel
 
 ## Manual: redeploy an older image
 
-Every build of `main` is in GHCR as an immutable `sha-<short>` tag. Production runs `:main`, so rolling back means pointing `:main` at an older build and redeploying:
+Every build of `main` is in GHCR as a `sha-<short>` tag that is never overwritten. Production runs `:main`, so rolling back means pointing `:main` at an older build and redeploying:
 
 1. Pick the last good commit, e.g. from `git log` on `main` or the previous green `deploy` run. Its image is `ghcr.io/<OWNER>/my-notebook:sha-<short>`.
 2. Retag it as `main`, keeping its SBOM and provenance (needs a token with `write:packages`):

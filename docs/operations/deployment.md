@@ -17,35 +17,35 @@ Built from the root `Dockerfile` by the CI job `image`, which runs after `check`
 
 Pushed to GHCR as `ghcr.io/<OWNER>/my-notebook` on pushes to `main` only; pull requests build and smoke-check the image without pushing.
 
-| Tag            | Meaning                                         |
-| -------------- | ----------------------------------------------- |
-| `sha-<short>`  | The commit the image was built from (immutable) |
-| `main`         | The latest build of `main` (moves)              |
+| Tag           | Meaning                                                 |
+| ------------- | ------------------------------------------------------- |
+| `sha-<short>` | The commit the image was built from (never overwritten) |
+| `main`        | The latest build of `main` (moves)                      |
 
 Each push carries an SBOM and a max-mode provenance attestation. The OCI labels `org.opencontainers.image.source` (links the package to the repository) and `org.opencontainers.image.revision` (the commit) are set. The package must be public: production pulls without registry credentials.
 
 ### Build arguments
 
-| Argument | Purpose                                                                                         |
-| -------- | ----------------------------------------------------------------------------------------------- |
+| Argument | Purpose                                                                                                                                      |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | `COMMIT` | Full Git commit SHA. Baked into the image as the `COMMIT` env var and the revision label; reported by `/api/health`. CI passes `github.sha`. |
 
 ### Environment variables
 
 Set on the running container. Names only; values live in the deployment platform.
 
-| Name             | Required | Notes                                                       |
-| ---------------- | -------- | ----------------------------------------------------------- |
-| `DATABASE_URL`   | yes      | Postgres 18 connection URL                                  |
-| `IP_HASH_SECRET` | yes      | 32+ characters; HMAC key for Visitor IPs                    |
-| `LOG_LEVEL`      | no       | `info` by default                                           |
-| `HOSTNAME`       | no       | Bind address; the image sets `0.0.0.0`                      |
-| `PORT`           | no       | The image sets `3000`                                       |
-| `NODE_ENV`       | no       | The image sets `production`                                 |
-| `COMMIT`         | no       | Set by the build; don't override                            |
-| `LLM_MODE`       | no       | `fake` (default: scripted answers, no key, no cost) or `real` |
-| `ANTHROPIC_API_KEY` | with `real` | Required when `LLM_MODE=real`                          |
-| `SOURCE_TOKEN_CAP` | no     | Tokens of enabled Sources per Notebook; `80000` by default  |
+| Name                | Required    | Notes                                                         |
+| ------------------- | ----------- | ------------------------------------------------------------- |
+| `DATABASE_URL`      | yes         | Postgres 18 connection URL                                    |
+| `IP_HASH_SECRET`    | yes         | 32+ characters; HMAC key for Visitor IPs                      |
+| `LOG_LEVEL`         | no          | `info` by default                                             |
+| `HOSTNAME`          | no          | Bind address; the image sets `0.0.0.0`                        |
+| `PORT`              | no          | The image sets `3000`                                         |
+| `NODE_ENV`          | no          | The image sets `production`                                   |
+| `COMMIT`            | no          | Set by the build; don't override                              |
+| `LLM_MODE`          | no          | `fake` (default: scripted answers, no key, no cost) or `real` |
+| `ANTHROPIC_API_KEY` | with `real` | Required when `LLM_MODE=real`                                 |
+| `SOURCE_TOKEN_CAP`  | no          | Tokens of enabled Sources per Notebook; `80000` by default    |
 
 An invalid environment makes the server exit at start instead of serving errors.
 
@@ -66,14 +66,14 @@ Never rename or drop a column, or add a `NOT NULL` column without a default, in 
 
 The CI job `deploy` runs on pushes to `main` only, after `check`, `test` and `image` (which pushed `sha-<short>` and `main`). It runs in the GitHub environment `production`, which only deploys from `main` and holds its secrets:
 
-| Secret                   | Holds                                                         |
-| ------------------------ | ------------------------------------------------------------- |
-| `DOKPLOY_URL`            | Dokploy panel base URL, reachable only over the tailnet       |
-| `DOKPLOY_API_KEY`        | Dokploy API key for CI                                        |
-| `DOKPLOY_APPLICATION_ID` | The Application's id                                          |
-| `PRODUCTION_URL`         | Public base URL of the app                                    |
-| `TS_OAUTH_CLIENT_ID`     | Tailscale OAuth client (scope Auth Keys, tag `tag:ci`)        |
-| `TS_OAUTH_SECRET`        | Its secret                                                    |
+| Secret                   | Holds                                                   |
+| ------------------------ | ------------------------------------------------------- |
+| `DOKPLOY_URL`            | Dokploy panel base URL, reachable only over the tailnet |
+| `DOKPLOY_API_KEY`        | Dokploy API key for CI                                  |
+| `DOKPLOY_APPLICATION_ID` | The Application's id                                    |
+| `PRODUCTION_URL`         | Public base URL of the app                              |
+| `TS_OAUTH_CLIENT_ID`     | Tailscale OAuth client (scope Auth Keys, tag `tag:ci`)  |
+| `TS_OAUTH_SECRET`        | Its secret                                              |
 
 Steps:
 
@@ -100,7 +100,7 @@ Done once by hand; record names and facts only, never hostnames or URLs.
 
 ### Swarm settings
 
-Swarm gives a task with a health check the state *running* only once the check passes. With start-first, the old container keeps serving until then; if the new one never gets healthy, the update fails and Swarm rolls back to the previous image.
+Swarm gives a task with a health check the state _running_ only once the check passes. With start-first, the old container keeps serving until then; if the new one never gets healthy, the update fails and Swarm rolls back to the previous image.
 
 **Health Check** (durations in nanoseconds): `curl -f` against the app's own health route every 10 s, 5 s timeout, 3 retries, with 30 s of grace for migrations and boot. `/api/health` answers `503` when the database is down, so a container that can't reach Postgres never becomes healthy.
 
@@ -138,7 +138,7 @@ Switching back is the same with `LLM_MODE=fake`; the key can stay set.
 
 ## Raising caps for a recording
 
-Caps are environment variables (today `SOURCE_TOKEN_CAP`; the spend caps of the budget guard follow the same pattern). To record a demo with higher limits:
+Caps are environment variables (today `SOURCE_TOKEN_CAP`). To record a demo with higher limits:
 
 1. Note the current values, then raise them in the Application's environment.
 2. Deploy from Dokploy and wait until `/api/health` answers again.

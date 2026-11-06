@@ -214,7 +214,8 @@ jobs:
           # Dokploy pulls the `main` tag the image job just pushed and rolls it out on Swarm.
           body=$(jq -n --arg id "$DOKPLOY_APPLICATION_ID" --arg title "CI deploy ${COMMIT:0:7}" \
             '{applicationId: $id, title: $title}')
-          curl -fsS --retry 3 --max-time 30 -o /dev/null \
+          # No --retry: a slow answer may still have queued the deploy, and a retry would queue another.
+          curl -fsS --max-time 30 -o /dev/null \
             -X POST "${DOKPLOY_URL%/}/api/application.deploy" \
             -H "x-api-key: $DOKPLOY_API_KEY" \
             -H 'content-type: application/json' \
@@ -225,10 +226,11 @@ jobs:
           # Swarm starts the new container next to the old one and only switches once its
           # health check passes; if it doesn't, Swarm rolls back and the old commit stays.
           deadline=$((SECONDS + 300))
-          seen=''
           while [ "$SECONDS" -lt "$deadline" ]; do
+            seen=''
             if body=$(curl -fsS --max-time 10 "${PRODUCTION_URL%/}/api/health"); then
-              seen=$(echo "$body" | jq -r '.commit // empty')
+              # A non-JSON answer (e.g. a proxy page mid-rollout) must not end the poll.
+              seen=$(echo "$body" | jq -r '.commit // empty' 2>/dev/null || true)
               if [ "$seen" = "$COMMIT" ]; then
                 echo "Production reports $COMMIT: $body"
                 exit 0
