@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build && rm -rf .next/standalone/.next/static && cp -r .next/static .next/standalone/.next/static",
+    "build:migrate": "esbuild src/platform/db/migrate.ts --bundle --platform=node --format=esm --target=node24 --external:pg-native --outfile=dist/migrate.mjs --banner:js=\"import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);\"",
     "start": "node .next/standalone/server.js",
     "typecheck": "tsc --noEmit && tsc -p .sandcastle",
     "lint": "eslint --max-warnings 0 .",
@@ -52,6 +53,7 @@
     "@types/react-dom": "^19.3.0",
     "@typescript/native": "npm:typescript@^7.0.2",
     "drizzle-kit": "0.31.11",
+    "esbuild": "^0.28.2",
     "eslint": "^9.39.5",
     "eslint-config-next": "16.4.5",
     "eslint-config-prettier": "^10.1.8",
