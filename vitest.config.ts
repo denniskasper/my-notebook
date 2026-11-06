@@ -30,6 +30,8 @@ export default defineConfig({
             NODE_ENV: 'test',
             DATABASE_URL: process.env.TEST_DATABASE_URL ?? '',
             LOG_LEVEL: 'silent',
+            LLM_MODE: 'fake',
+            SOURCE_TOKEN_CAP: '1000',
           },
         },
       },

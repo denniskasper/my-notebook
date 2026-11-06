@@ -17,6 +17,11 @@ export const envSchema = z
     IP_HASH_SECRET: z.string().min(32).optional(),
     LOG_LEVEL: z.enum(LOG_LEVELS).default('info'),
     COMMIT: z.string().min(1).default('unknown'),
+    // `fake` (scripted, no key, no cost) everywhere except where real answers are wanted.
+    LLM_MODE: z.enum(['fake', 'real']).default('fake'),
+    ANTHROPIC_API_KEY: z.string().min(1).optional(),
+    // Tokens a Notebook's enabled Sources may add up to (ADR 0002).
+    SOURCE_TOKEN_CAP: z.coerce.number().int().positive().default(80_000),
   })
   .transform((env, ctx) => {
     if (env.IP_HASH_SECRET === undefined && env.NODE_ENV === 'production') {
@@ -24,6 +29,14 @@ export const envSchema = z
         code: 'custom',
         path: ['IP_HASH_SECRET'],
         message: 'IP_HASH_SECRET is required in production',
+      });
+      return z.NEVER;
+    }
+    if (env.LLM_MODE === 'real' && env.ANTHROPIC_API_KEY === undefined) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['ANTHROPIC_API_KEY'],
+        message: 'ANTHROPIC_API_KEY is required when LLM_MODE=real',
       });
       return z.NEVER;
     }

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { after } from 'next/server';
 import { z } from 'zod';
 
 import {
@@ -10,6 +11,15 @@ import {
   notebookTitleSchema,
   renameNotebook,
 } from '@/modules/notebooks';
+import {
+  addTextSource,
+  deleteSource,
+  processSource,
+  retrySource,
+  setSourceEnabled,
+  sourceTextSchema,
+  sourceTitleSchema,
+} from '@/modules/sources';
 import { ensureVisitor } from '@/modules/visitors';
 import { requestLogger } from '@/platform/logging';
 import type { ActionResult } from '@/ui/shell';
@@ -56,4 +66,75 @@ export async function deleteNotebookAction(formData: FormData): Promise<void> {
   }
   revalidatePath('/', 'layout');
   redirect('/');
+}
+
+const sourceIdSchema = notebookIdSchema.extend({ sourceId: z.uuid() });
+const addTextSourceSchema = notebookIdSchema.extend({
+  title: sourceTitleSchema,
+  text: sourceTextSchema,
+});
+const setEnabledSchema = sourceIdSchema.extend({ enabled: z.enum(['true', 'false']) });
+
+/** Works the Source after the response is sent; the sidebar polls until it is no longer processing. */
+function processAfterResponse(sourceId: string): void {
+  after(async () => {
+    await processSource(sourceId);
+  });
+}
+
+export async function addTextSourceAction(
+  _previous: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  const input = addTextSourceSchema.safeParse(Object.fromEntries(formData));
+  if (!input.success) {
+    const field = input.error.issues[0]?.path[0];
+    if (field === 'title') return { ok: false, error: 'invalid_source_title' };
+    if (field === 'text') return { ok: false, error: 'invalid_source_text' };
+    return { ok: false, error: 'not_found' };
+  }
+  const { notebookId, title, text } = input.data;
+  const visitorId = await ensureVisitor();
+  const source = await addTextSource(visitorId, notebookId, { title, text });
+  if (!source) return { ok: false, error: 'not_found' };
+  (await requestLogger()).info({ event: 'source.added', sourceId: source.id, kind: 'text' });
+  processAfterResponse(source.id);
+  revalidatePath(`/notebooks/${notebookId}`);
+  return { ok: true };
+}
+
+export async function setSourceEnabledAction(
+  _previous: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  const input = setEnabledSchema.safeParse(Object.fromEntries(formData));
+  if (!input.success) return { ok: false, error: 'source_not_found' };
+  const { notebookId, sourceId, enabled } = input.data;
+  const visitorId = await ensureVisitor();
+  const result = await setSourceEnabled(visitorId, notebookId, sourceId, enabled === 'true');
+  revalidatePath(`/notebooks/${notebookId}`);
+  return result.ok ? { ok: true } : { ok: false, error: result.error };
+}
+
+export async function retrySourceAction(formData: FormData): Promise<void> {
+  const input = sourceIdSchema.safeParse(Object.fromEntries(formData));
+  if (!input.success) return;
+  const { notebookId, sourceId } = input.data;
+  const visitorId = await ensureVisitor();
+  if (await retrySource(visitorId, notebookId, sourceId)) {
+    (await requestLogger()).info({ event: 'source.retried', sourceId });
+    processAfterResponse(sourceId);
+  }
+  revalidatePath(`/notebooks/${notebookId}`);
+}
+
+export async function deleteSourceAction(formData: FormData): Promise<void> {
+  const input = sourceIdSchema.safeParse(Object.fromEntries(formData));
+  if (!input.success) return;
+  const { notebookId, sourceId } = input.data;
+  const visitorId = await ensureVisitor();
+  if (await deleteSource(visitorId, notebookId, sourceId)) {
+    (await requestLogger()).info({ event: 'source.deleted', sourceId });
+  }
+  revalidatePath(`/notebooks/${notebookId}`);
 }
