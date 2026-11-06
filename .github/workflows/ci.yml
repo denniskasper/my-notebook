@@ -103,7 +103,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       # Loaded into the local daemon for the smoke check and the security scan (attestations
-      # can't be loaded); the publish job rebuilds it from the same cache with SBOM and provenance.
+      # can't be loaded); the publish job rebuilds it with SBOM and provenance and scans it again.
       - name: Build
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
@@ -183,7 +183,7 @@ jobs:
   publish:
     name: publish
     needs: security
-    # Only main is published, and only once the image it rebuilds has passed the scan.
+    # Only main is published, and only after the security job and a scan of the pushed digest.
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -207,23 +207,45 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      # Rebuilt from the image job's cache, so the layers are the ones that were scanned.
-      - name: Build and push with SBOM and provenance
+      # Pushed by digest only (no tag yet) and scanned again before it is tagged: the rebuild can
+      # miss the cache or resolve a newer base image, so it is not guaranteed to be the image
+      # the security job scanned. A digest that fails the scan stays untagged.
+      - id: build
+        name: Build and push by digest with SBOM and provenance
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
+          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
           labels: ${{ steps.meta.outputs.labels }}
           build-args: COMMIT=${{ github.sha }}
           sbom: true
           provenance: mode=max
           cache-from: type=gha
+      - name: Image scan of the pushed digest (Trivy, fixable CRITICAL)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        env:
+          TRIVY_USERNAME: ${{ github.actor }}
+          TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          scan-type: image
+          image-ref: ${{ env.IMAGE }}@${{ steps.build.outputs.digest }}
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+          version: v0.76.1
+      - name: Tag the scanned digest
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          # shellcheck disable=SC2046 # one "-t <tag>" pair per tag
+          docker buildx imagetools create \
+            $(jq -r '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            "${IMAGE}@${DIGEST}"
 
   deploy:
     name: deploy
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [check, test, image]
+    needs: publish
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     # Environment secrets; the environment only deploys from main.
@@ -264,7 +286,7 @@ jobs:
           log-mode: quiet
       - name: Deploy on Dokploy
         run: |
-          # Dokploy pulls the `main` tag the image job just pushed and rolls it out on Swarm.
+          # Dokploy pulls the `main` tag the publish job just pushed and rolls it out on Swarm.
           body=$(jq -n --arg id "$DOKPLOY_APPLICATION_ID" --arg title "CI deploy ${COMMIT:0:7}" \
             '{applicationId: $id, title: $title}')
           # No --retry: a slow answer may still have queued the deploy, and a retry would queue another.

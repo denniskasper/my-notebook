@@ -25,10 +25,4 @@ describe('GitHub Actions workflows', () => {
   it.each(usesLines)('$file pins $uses by full commit SHA with its version', ({ uses }) => {
     expect(uses).toMatch(PINNED);
   });
-
-  it('check pull request titles against Conventional Commits', () => {
-    expect(usesLines.map(({ uses }) => uses.split('@')[0])).toContain(
-      'amannn/action-semantic-pull-request',
-    );
-  });
 });

@@ -1,6 +1,6 @@
 version: 2
 
-# Weekly, one grouped PR per ecosystem (majors separately, they need a closer look).
+# Weekly, one grouped PR per ecosystem (npm majors separately, they need a closer look).
 # The cooldown lets a freshly published release age a week before it is proposed,
 # so a compromised version is more likely to be pulled before it reaches us.
 updates:

@@ -2,7 +2,7 @@
 
 How the app is built and shipped. Production runs the image CI builds ([ADR 0003](../adr/0003-ci-built-image-deployed-to-dokploy-with-rollback.md)) on a self-hosted Dokploy server; Docker Swarm rolls it out start-first and rolls it back on its own when it is unhealthy. Rolling back by hand: [rollback.md](rollback.md).
 
-Every push to `main` runs `check → test → image → deploy`. A merge that only touches docs or Markdown doesn't run CI and isn't deployed.
+Every push to `main` runs `check → test → image → security → publish → deploy`. A merge that only touches docs or Markdown doesn't run CI and isn't deployed.
 
 ## Container image
 
@@ -55,7 +55,7 @@ The `image` job loads the built image, starts it against the job's Postgres serv
 
 ## CI pipeline
 
-`ci.yml` runs `check → test → image → security → publish` on every pull request and push to `main`; `pr-title.yml` checks the pull request title.
+`ci.yml` runs `check → test → image → security` on every pull request and push to `main`, then `publish` and `deploy` on pushes to `main` only; `pr-title.yml` checks the pull request title.
 
 | Job        | What it does                                                                                                   |
 | ---------- | -------------------------------------------------------------------------------------------------------------- |
@@ -63,18 +63,19 @@ The `image` job loads the built image, starts it against the job's Postgres serv
 | `test`     | Unit, integration and e2e tests (fake `llm`)                                                                   |
 | `image`    | Builds the image, smoke-checks it and hands it to `security` as an artifact                                    |
 | `security` | gitleaks over the full Git history; Trivy scan of that image, failing on CRITICAL vulnerabilities with a fix   |
-| `publish`  | `main` only: rebuilds the image from the build cache with SBOM and provenance and pushes it to GHCR            |
+| `publish`  | `main` only: rebuilds the image with SBOM and provenance, pushes it by digest, scans that digest, then tags it |
+| `deploy`   | `main` only: deploys the published image on Dokploy (see [Deploy job](#deploy-job))                            |
 | `pr-title` | The PR title is a Conventional Commits subject (it becomes the squash commit on `main`)                        |
 
 Trivy scans only the image, not the repository: the image holds the OS packages and the production dependencies that actually ship. Unfixable findings don't fail the build because there is nothing to upgrade to; Dependabot picks up the fix once it exists.
 
 ### Branch protection
 
-Mark these checks as required on `main`: `check`, `test`, `image`, `security`, `pr-title`. `publish` is skipped on pull requests, so it is not required. Pull requests run `ci.yml` without `paths-ignore`, so docs-only PRs report every required check too.
+Mark these checks as required on `main`: `check`, `test`, `image`, `security`, `pr-title`. `publish` and `deploy` are skipped on pull requests, so they are not required. Pull requests run `ci.yml` without `paths-ignore`, so docs-only PRs report every required check too. `pr-title` runs on `pull_request_target`, which uses the workflow from `main`, so it only reports once `pr-title.yml` is merged; mark it as required after that.
 
 ### Pinned actions
 
-Every third-party action is pinned to a full commit SHA, with its version in a comment (`uses: owner/action@<sha> # v1.2.3`). A tag can be moved to other code at any time; a commit SHA can't. This is not hypothetical: in March 2026 the tags of `aquasecurity/trivy-action` were force-pushed to a credential-stealing commit (CVE-2026-33634), and every workflow that referenced the action by tag ran it. A unit test (`src/test/workflow-pins.test.ts`) fails on any unpinned `uses:`. Downloaded tools follow the same rule: gitleaks is fetched at a fixed version and checked against its SHA-256.
+Every third-party action is pinned to a full commit SHA, with its version in a comment (`uses: owner/action@<sha> # v1.2.3`). A tag can be moved to other code at any time; a commit SHA can't. This is not hypothetical: in March 2026 the tags of `aquasecurity/trivy-action` were force-pushed to a credential-stealing commit (CVE-2026-33634), and every workflow that referenced the action by tag ran it. A unit test (`src/test/workflow-pins.test.ts`) fails on any unpinned `uses:` in `.github/workflows/`. Downloaded tools follow the same rule: gitleaks is fetched at a fixed version and checked against its SHA-256.
 
 ### Dependabot
 
@@ -91,7 +92,7 @@ Never rename or drop a column, or add a `NOT NULL` column without a default, in 
 
 ## Deploy job
 
-The CI job `deploy` runs on pushes to `main` only, after `check`, `test` and `image` (which pushed `sha-<short>` and `main`). It runs in the GitHub environment `production`, which only deploys from `main` and holds its secrets:
+The CI job `deploy` runs on pushes to `main` only, after `publish` (which pushed the scanned image as `sha-<short>` and `main`). It runs in the GitHub environment `production`, which only deploys from `main` and holds its secrets:
 
 | Secret                   | Holds                                                   |
 | ------------------------ | ------------------------------------------------------- |
