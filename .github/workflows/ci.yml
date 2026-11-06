@@ -11,7 +11,9 @@ on:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # Superseded PR runs are cancelled; runs on main queue instead, so a deploy is never cut off
+  # mid-rollout and every merge that isn't superseded by a newer one reaches production.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -164,3 +166,75 @@ jobs:
           sbom: true
           provenance: mode=max
           cache-from: type=gha
+
+  deploy:
+    name: deploy
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [check, test, image]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    # Environment secrets; the environment only deploys from main.
+    environment: production
+    env:
+      DOKPLOY_URL: ${{ secrets.DOKPLOY_URL }}
+      DOKPLOY_API_KEY: ${{ secrets.DOKPLOY_API_KEY }}
+      DOKPLOY_APPLICATION_ID: ${{ secrets.DOKPLOY_APPLICATION_ID }}
+      PRODUCTION_URL: ${{ secrets.PRODUCTION_URL }}
+      TS_OAUTH_CLIENT_ID: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+      TS_OAUTH_SECRET: ${{ secrets.TS_OAUTH_SECRET }}
+      COMMIT: ${{ github.sha }}
+    steps:
+      - name: Check secrets and mask hosts
+        run: |
+          missing=0
+          for name in DOKPLOY_URL DOKPLOY_API_KEY DOKPLOY_APPLICATION_ID PRODUCTION_URL TS_OAUTH_CLIENT_ID TS_OAUTH_SECRET; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Secret $name is not set in the production environment"
+              missing=1
+            fi
+          done
+          [ "$missing" = 0 ] || exit 1
+          # GitHub masks whole secret values only; mask the bare hosts too, since curl and
+          # tailscale print them on their own in errors.
+          for url in "$DOKPLOY_URL" "$PRODUCTION_URL"; do
+            host=${url#*://}
+            host=${host%%/*}
+            echo "::add-mask::$host"
+            echo "::add-mask::${host%%:*}"
+          done
+      - name: Join the tailnet (ephemeral node)
+        uses: tailscale/github-action@064b10558093f38325e838ddea35486bdc6b1d5c # v4.4.0
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+          log-mode: quiet
+      - name: Deploy on Dokploy
+        run: |
+          # Dokploy pulls the `main` tag the image job just pushed and rolls it out on Swarm.
+          body=$(jq -n --arg id "$DOKPLOY_APPLICATION_ID" --arg title "CI deploy ${COMMIT:0:7}" \
+            '{applicationId: $id, title: $title}')
+          curl -fsS --retry 3 --max-time 30 -o /dev/null \
+            -X POST "${DOKPLOY_URL%/}/api/application.deploy" \
+            -H "x-api-key: $DOKPLOY_API_KEY" \
+            -H 'content-type: application/json' \
+            -d "$body"
+          echo "Deployment of $COMMIT queued"
+      - name: Wait for production to report the commit
+        run: |
+          # Swarm starts the new container next to the old one and only switches once its
+          # health check passes; if it doesn't, Swarm rolls back and the old commit stays.
+          deadline=$((SECONDS + 300))
+          seen=''
+          while [ "$SECONDS" -lt "$deadline" ]; do
+            if body=$(curl -fsS --max-time 10 "${PRODUCTION_URL%/}/api/health"); then
+              seen=$(echo "$body" | jq -r '.commit // empty')
+              if [ "$seen" = "$COMMIT" ]; then
+                echo "Production reports $COMMIT: $body"
+                exit 0
+              fi
+            fi
+            sleep 10
+          done
+          echo "::error::Production did not report $COMMIT within 5 minutes (last seen: ${seen:-no answer}). Swarm has rolled back or the rollout is stuck; see docs/operations/rollback.md."
+          exit 1
