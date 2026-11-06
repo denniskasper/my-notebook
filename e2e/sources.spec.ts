@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-import { strings } from '../src/ui/strings';
+import { format, strings } from '../src/ui/strings';
 
 test('a Visitor adds a text Source, watches it get ready and reads it in the reader', async ({
   page,
@@ -27,7 +27,9 @@ test('a Visitor adds a text Source, watches it get ready and reads it in the rea
   const sidebar = page.getByRole('complementary', { name: strings.sidebar.label });
   const source = sidebar.getByRole('listitem').filter({ hasText: title });
   await expect(source.getByRole('switch', { name: strings.sources.enabledLabel })).toBeChecked();
-  await expect(page.getByText('1 von 1 Quellen aktiv')).toBeVisible();
+  await expect(
+    page.getByText(format(strings.notebook.activeSources, { count: 1, total: 1 })),
+  ).toBeVisible();
 
   await source.getByRole('link', { name: title }).click();
   const reader = page.getByRole('region', { name: strings.reader.label });
@@ -41,5 +43,7 @@ test('a Visitor adds a text Source, watches it get ready and reads it in the rea
   await expect(highlighted).toHaveText('Für bestehende Heizungen gelten Übergangsfristen.');
 
   await source.getByRole('switch', { name: strings.sources.enabledLabel }).click();
-  await expect(page.getByText('0 von 1 Quellen aktiv')).toBeVisible();
+  await expect(
+    page.getByText(format(strings.notebook.activeSources, { count: 0, total: 1 })),
+  ).toBeVisible();
 });

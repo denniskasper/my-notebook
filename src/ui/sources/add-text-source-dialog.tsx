@@ -13,7 +13,7 @@ import {
   DialogTrigger,
 } from '@/ui/components/dialog';
 import { SubmitButton } from '@/ui/components/submit-button';
-import type { ActionResult } from '@/ui/shell/notebook-header';
+import type { ActionResult } from '@/ui/shell';
 import { errorMessage, strings } from '@/ui/strings';
 
 import type { SourceLimits } from './types';

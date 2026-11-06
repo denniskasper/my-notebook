@@ -40,7 +40,9 @@ async function add(title: string, text: string): Promise<Source> {
 }
 
 async function addReady(title: string, text: string): Promise<Source> {
-  return processSource((await add(title, text)).id);
+  const processed = await processSource((await add(title, text)).id);
+  if (!processed) throw new Error('Source was not processed');
+  return processed;
 }
 
 describe('addTextSource', () => {
@@ -181,6 +183,31 @@ describe('the stale sweep and retry', () => {
     const retried = await retrySource(visitor, notebook, stuck.id);
     expect(retried).toMatchObject({ status: 'processing', errorCode: null });
     expect(await processSource(stuck.id)).toMatchObject({ status: 'ready', tokenCount: 2 });
+  });
+
+  it("keeps the sweep's outcome when a slow run finishes after it", async () => {
+    const stuck = await add('Langsam', 'Text.');
+    await failStaleSources({ olderThan: new Date(Date.now() + 1_000) });
+
+    expect(await processSource(stuck.id)).toBeNull();
+    const after = await getSourceWithPassages(visitor, notebook, stuck.id);
+    expect(after?.source).toMatchObject({ status: 'failed', errorCode: 'interrupted' });
+  });
+
+  it('skips a Source deleted before its run finishes', async () => {
+    const gone = await add('Weg', 'Text.');
+    await deleteSource(visitor, notebook, gone.id);
+    expect(await processSource(gone.id)).toBeNull();
+  });
+
+  it('readies a disabled Source over the cap, since it adds nothing to the enabled total', async () => {
+    await addReady('Groß', 'x'.repeat(CAP_CHARS - 400));
+    const tooMuch = await add('Zu viel', 'y'.repeat(800));
+    await setSourceEnabled(visitor, notebook, tooMuch.id, false);
+
+    expect(await processSource(tooMuch.id)).toMatchObject({ status: 'ready', enabled: false });
+    const enabling = await setSourceEnabled(visitor, notebook, tooMuch.id, true);
+    expect(enabling).toEqual({ ok: false, error: 'token_cap_exceeded' });
   });
 
   it('only retries failed Sources of the Visitor', async () => {

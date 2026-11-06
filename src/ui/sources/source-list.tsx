@@ -7,7 +7,7 @@ import { useActionState, useEffect, useOptimistic, useRef } from 'react';
 
 import { cn } from '@/ui/cn';
 import { SubmitButton } from '@/ui/components/submit-button';
-import type { ActionResult } from '@/ui/shell/notebook-header';
+import type { ActionResult } from '@/ui/shell';
 import { errorMessage, format, strings } from '@/ui/strings';
 
 import { SourceKindIcon } from './kind-icon';

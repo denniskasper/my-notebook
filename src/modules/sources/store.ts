@@ -85,8 +85,10 @@ export async function addTextSource(
 /**
  * Works a `processing` Source to `ready` (token count set, within the cap) or
  * `failed` with an error code. Runs in-process after the request that added it.
+ * Null if the Source is no longer `processing`: deleted meanwhile, or already
+ * failed as `interrupted` by the sweep, whose outcome stands.
  */
-export async function processSource(sourceId: string): Promise<Source> {
+export async function processSource(sourceId: string): Promise<Source | null> {
   const texts = await db()
     .select({ text: passages.text })
     .from(passages)
@@ -98,24 +100,21 @@ export async function processSource(sourceId: string): Promise<Source> {
     tokenCount = await llm().countTokens(texts.map((row) => row.text).join('\n\n'));
   } catch (error) {
     logger().warn({ event: 'source.token_count_failed', sourceId, err: error });
-    return finish(sourceId, { status: 'failed', errorCode: 'token_count_failed' });
+    return finish(db(), sourceId, { status: 'failed', errorCode: 'token_count_failed' });
   }
 
   return db().transaction(async (tx) => {
     const [source] = await tx.select().from(sources).where(eq(sources.id, sourceId));
-    if (!source) throw new Error(`Source ${sourceId} not found`);
+    if (!source) return skipped(sourceId);
     await lockNotebook(tx, source.notebookId);
-    const fits = fitsTokenCap({
-      enabledTokens: await enabledTokenCounts(tx, source.notebookId, sourceId),
-      addingTokens: tokenCount,
-      cap: env().SOURCE_TOKEN_CAP,
-    });
+    // A disabled Source adds nothing to the enabled total, so only an enabled one can exceed the cap.
+    const fits = !source.enabled || (await fitsCap(tx, source.notebookId, sourceId, tokenCount));
     return finish(
+      tx,
       sourceId,
       fits
         ? { status: 'ready', errorCode: null, tokenCount }
         : { status: 'failed', errorCode: 'token_cap_exceeded', tokenCount },
-      tx,
     );
   });
 }
@@ -124,19 +123,25 @@ type Outcome =
   | { status: 'ready'; errorCode: null; tokenCount: number }
   | { status: 'failed'; errorCode: SourceErrorCode; tokenCount?: number };
 
+/** Records the outcome, unless the Source has left `processing` (or is gone) in the meantime. */
 async function finish(
+  tx: Transaction | Database,
   sourceId: string,
   outcome: Outcome,
-  tx: Transaction | Database = db(),
-): Promise<Source> {
+): Promise<Source | null> {
   const [row] = await tx
     .update(sources)
     .set({ ...outcome, statusChangedAt: new Date() })
-    .where(eq(sources.id, sourceId))
+    .where(and(eq(sources.id, sourceId), eq(sources.status, 'processing')))
     .returning();
-  if (!row) throw new Error(`Source ${sourceId} not found`);
+  if (!row) return skipped(sourceId);
   logger().info({ event: `source.${outcome.status}`, sourceId, errorCode: outcome.errorCode });
   return row;
+}
+
+function skipped(sourceId: string): null {
+  logger().info({ event: 'source.processing_skipped', sourceId });
+  return null;
 }
 
 /** Serialises cap checks per Notebook, so two Sources can't both squeeze under the cap. */
@@ -144,12 +149,13 @@ async function lockNotebook(tx: Transaction, notebookId: string): Promise<void> 
   await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${notebookId}))`);
 }
 
-/** Token counts of the Notebook's enabled, ready Sources other than `exceptSourceId`. */
-async function enabledTokenCounts(
+/** Whether `tokens` more fit beside the Notebook's other enabled, ready Sources. */
+async function fitsCap(
   tx: Transaction,
   notebookId: string,
-  exceptSourceId: string,
-): Promise<number[]> {
+  sourceId: string,
+  tokens: number,
+): Promise<boolean> {
   const rows = await tx
     .select({ tokenCount: sources.tokenCount })
     .from(sources)
@@ -158,10 +164,14 @@ async function enabledTokenCounts(
         eq(sources.notebookId, notebookId),
         eq(sources.enabled, true),
         eq(sources.status, 'ready'),
-        ne(sources.id, exceptSourceId),
+        ne(sources.id, sourceId),
       ),
     );
-  return rows.map((row) => row.tokenCount ?? 0);
+  return fitsTokenCap({
+    enabledTokens: rows.map((row) => row.tokenCount ?? 0),
+    addingTokens: tokens,
+    cap: env().SOURCE_TOKEN_CAP,
+  });
 }
 
 export type SetEnabledResult =
@@ -183,11 +193,7 @@ export async function setSourceEnabled(
 
     // Only a ready Source counts against the cap; others are checked when they finish.
     if (enabled && !source.enabled && source.status === 'ready') {
-      const fits = fitsTokenCap({
-        enabledTokens: await enabledTokenCounts(tx, notebookId, sourceId),
-        addingTokens: source.tokenCount ?? 0,
-        cap: env().SOURCE_TOKEN_CAP,
-      });
+      const fits = await fitsCap(tx, notebookId, sourceId, source.tokenCount ?? 0);
       if (!fits) return { ok: false, error: 'token_cap_exceeded' };
     }
 
