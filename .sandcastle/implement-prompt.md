@@ -37,12 +37,7 @@ Pay extra attention to test files that touch the relevant parts of the code.
 
 # EXECUTION
 
-If applicable, use RGR to complete the task.
-
-1. RED: write one test
-2. GREEN: write the implementation to pass that test
-3. REPEAT until done
-4. REFACTOR the code
+Call the Skill tool with `tdd` and follow it. The seams are pre-agreed in the parent spec's testing section (unit tests for pure logic, integration tests for each module's `index.ts`, one Playwright happy path through the fake LLM): treat them as confirmed, don't ask. Leave refactoring to the review stage.
 
 For UI work, use the `frontend-design` skill.
 
