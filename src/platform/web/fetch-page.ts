@@ -139,9 +139,11 @@ async function requestChecked(
 
   const addresses = isIP(hostname)
     ? [hostname]
-    : await (options.resolve ?? resolveHost)(hostname).catch(() => {
-        throw new FetchFailure('url_unreachable');
-      });
+    : await untilAborted((options.resolve ?? resolveHost)(hostname), signal).catch(
+        (error: unknown) => {
+          throw signal.aborted ? error : new FetchFailure('url_unreachable');
+        },
+      );
   if (addresses.length === 0) throw new FetchFailure('url_unreachable');
   if (!addresses.every((address) => isAllowed(address, port)))
     throw new FetchFailure('url_not_allowed');
@@ -182,6 +184,16 @@ function target(url: URL): { hostname: string; port: number } {
 async function resolveHost(hostname: string): Promise<string[]> {
   const results = await dnsLookup(hostname, { all: true, verbatim: true });
   return results.map((result) => result.address);
+}
+
+/** The promise, or a rejection once the signal aborts (DNS lookups take no signal). */
+function untilAborted<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) return Promise.reject(signal.reason);
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => reject(signal.reason);
+    signal.addEventListener('abort', onAbort, { once: true });
+    promise.then(resolve, reject).finally(() => signal.removeEventListener('abort', onAbort));
+  });
 }
 
 function pinnedLookup(address: string): LookupFunction {

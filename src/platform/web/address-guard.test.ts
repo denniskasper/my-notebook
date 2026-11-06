@@ -34,6 +34,8 @@ describe('isPublicAddress', () => {
     '::ffff:a9fe:a9fe',
     '::ffff:10.0.0.1',
     '64:ff9b::a9fe:a9fe',
+    '64:ff9b:1::a00:1',
+    '2001:0:4136:e378:8000:63bf:3fff:fdd2',
     '2002:a9fe:a9fe::1',
     '::127.0.0.1',
   ])('blocks the private or IPv4-embedding IPv6 address %s', (address) => {

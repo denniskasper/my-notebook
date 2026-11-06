@@ -260,6 +260,14 @@ describe('fetchPage', () => {
     });
   });
 
+  it('times out a host name that takes too long to resolve', async () => {
+    const hanging = options({ timeoutMs: 200, resolve: () => new Promise<string[]>(() => {}) });
+    expect(await fetchPage(at('/page', 'slow-dns.test'), hanging)).toEqual({
+      ok: false,
+      error: 'url_timeout',
+    });
+  });
+
   it('reports a host that does not resolve as unreachable', async () => {
     expect(await fetchPage(at('/page', 'nowhere.test'), options())).toEqual({
       ok: false,

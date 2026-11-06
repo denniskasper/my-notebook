@@ -24,7 +24,11 @@ const BLOCKED_IPV4: ReadonlyArray<[string, number]> = [
 const BLOCKED_IPV6: ReadonlyArray<[string, number]> = [
   // Unspecified, loopback and the deprecated IPv4-compatible form.
   ['::', 96],
+  // Local-use NAT64 maps onto any IPv4 address, private ones included.
+  ['64:ff9b:1::', 48],
   ['100::', 64],
+  // Teredo tunnels to an (obfuscated) IPv4 address.
+  ['2001::', 32],
   ['2001:db8::', 32],
   // 6to4 embeds an IPv4 address anywhere; nothing legitimate needs it any more.
   ['2002::', 16],
