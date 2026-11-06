@@ -8,3 +8,5 @@ playwright-report/
 test-results/
 coverage/
 dist/
+# Local copies of demo Sources (see demo/sources.md)
+demo/local/

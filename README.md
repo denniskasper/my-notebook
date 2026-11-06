@@ -28,5 +28,6 @@ pnpm dev
 | `pnpm test` | Vitest unit tests and integration tests against `TEST_DATABASE_URL` |
 | `pnpm test:e2e` | Playwright against a production build on the `_test` database |
 | `pnpm db:generate` | Generate a migration from the modules' `schema.ts` files |
+| `pnpm demo:seed` | Seed a demo Notebook into the local database (see `demo/README.md`) |
 
 `GET /api/health` reports the database ping, version and running commit.

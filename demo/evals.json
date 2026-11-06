@@ -1,0 +1,157 @@
+{
+  "sources": [
+    { "key": "notizen", "title": "Meine Notizen zur KI-Verordnung" },
+    { "key": "ki-mig", "title": "KI-MIG" },
+    { "key": "wikipedia", "title": "Verordnung über künstliche Intelligenz – Wikipedia" },
+    { "key": "bnetza", "title": "Pressemitteilung der Bundesnetzagentur vom 29.07.2026" }
+  ],
+  "questions": [
+    {
+      "id": "p1-hochrisiko-fristen",
+      "scene": "P1",
+      "mode": "chat",
+      "question": "Ab wann gelten die Pflichten für Hochrisiko-KI-Systeme?",
+      "enabledSources": ["notizen"],
+      "expectedSources": ["notizen"],
+      "keyFacts": [
+        {
+          "fact": "Anhang III ab 2. Dezember 2027",
+          "anyOf": ["2. Dezember 2027", "02.12.2027", "2.12.2027"]
+        },
+        {
+          "fact": "Anhang I ab 2. August 2028",
+          "anyOf": ["2. August 2028", "02.08.2028", "2.8.2028"]
+        }
+      ]
+    },
+    {
+      "id": "p1-nicht-abgedeckt",
+      "scene": "P1",
+      "mode": "chat",
+      "question": "Wie hoch sind die Strompreise für Rechenzentren in Deutschland?",
+      "enabledSources": ["notizen"],
+      "expectedSources": [],
+      "keyFacts": []
+    },
+    {
+      "id": "p2-marktueberwachung",
+      "scene": "P2",
+      "mode": "chat",
+      "question": "Welche Behörde überwacht in Deutschland den Markt für KI-Systeme?",
+      "enabledSources": ["notizen", "ki-mig"],
+      "expectedSources": ["ki-mig"],
+      "keyFacts": [{ "fact": "Bundesnetzagentur", "anyOf": ["Bundesnetzagentur"] }]
+    },
+    {
+      "id": "p3-quellenuebergreifend",
+      "scene": "P3",
+      "mode": "chat",
+      "question": "Welche Fristen gelten für Hochrisiko-KI-Systeme, wer überwacht sie in Deutschland, und was bedeutet das für mein Projekt?",
+      "enabledSources": ["notizen", "ki-mig", "wikipedia"],
+      "expectedSources": ["notizen", "ki-mig", "wikipedia"],
+      "keyFacts": [
+        {
+          "fact": "Anhang III ab 2. Dezember 2027",
+          "anyOf": ["2. Dezember 2027", "02.12.2027", "2.12.2027"]
+        },
+        { "fact": "Bundesnetzagentur", "anyOf": ["Bundesnetzagentur"] },
+        {
+          "fact": "My Notebook ist kein Hochrisiko-System",
+          "anyOf": ["kein Hochrisiko", "begrenzte", "Transparenz"]
+        }
+      ]
+    },
+    {
+      "id": "p4-agent-umsetzung",
+      "scene": "P4",
+      "mode": "agent",
+      "question": "Wie ist der aktuelle Stand der Umsetzung der KI-Verordnung in Deutschland? Füge eine aktuelle offizielle Quelle hinzu und halte die Zuständigkeiten in einer Notiz fest.",
+      "enabledSources": ["notizen", "ki-mig", "wikipedia"],
+      "expectedSources": ["ki-mig", "bnetza"],
+      "keyFacts": [
+        {
+          "fact": "KI-MIG in Kraft seit 29.07.2026",
+          "anyOf": ["29. Juli 2026", "29.07.2026", "29.7.2026"]
+        },
+        { "fact": "Bundesnetzagentur als zentrale Behörde", "anyOf": ["Bundesnetzagentur"] },
+        {
+          "fact": "KI-Marktüberwachungskammer (§ 4 KI-MIG)",
+          "anyOf": ["KI-Marktüberwachungskammer", "§ 4"]
+        }
+      ]
+    },
+    {
+      "id": "risiko-log",
+      "scene": null,
+      "mode": "chat",
+      "question": "Welche Felder hat mein Risiko-Log?",
+      "enabledSources": ["notizen", "ki-mig", "wikipedia"],
+      "expectedSources": ["notizen"],
+      "keyFacts": [
+        { "fact": "Zweck", "anyOf": ["Zweck"] },
+        { "fact": "Risikoklasse", "anyOf": ["Risikoklasse"] },
+        { "fact": "Kennzeichnung", "anyOf": ["Kennzeichnung"] }
+      ]
+    },
+    {
+      "id": "verbote",
+      "scene": null,
+      "mode": "chat",
+      "question": "Welche KI-Praktiken sind verboten, und seit wann?",
+      "enabledSources": ["notizen", "ki-mig", "wikipedia"],
+      "expectedSources": ["wikipedia"],
+      "keyFacts": [
+        {
+          "fact": "Verbote gelten seit 2. Februar 2025",
+          "anyOf": ["2. Februar 2025", "02.02.2025", "2.2.2025"]
+        },
+        {
+          "fact": "Social Scoring ist verboten",
+          "anyOf": ["Social Scoring", "Sozialkredit", "soziale Bewertung"]
+        }
+      ]
+    },
+    {
+      "id": "marktueberwachungskammer",
+      "scene": null,
+      "mode": "chat",
+      "question": "Was ist die KI-Marktüberwachungskammer und wofür ist sie zuständig?",
+      "enabledSources": ["notizen", "ki-mig", "wikipedia"],
+      "expectedSources": ["ki-mig"],
+      "keyFacts": [
+        { "fact": "unabhängig", "anyOf": ["unabhängig"] },
+        { "fact": "Hochrisiko-Bereiche", "anyOf": ["Hochrisiko"] }
+      ]
+    },
+    {
+      "id": "omnibus",
+      "scene": null,
+      "mode": "chat",
+      "question": "Was hat die Digital-Omnibus-Verordnung an der KI-Verordnung geändert?",
+      "enabledSources": ["notizen", "ki-mig", "wikipedia"],
+      "expectedSources": ["wikipedia"],
+      "keyFacts": [
+        {
+          "fact": "Hochrisiko-Fristen verschoben",
+          "anyOf": ["verschoben", "Verschiebung", "später"]
+        },
+        {
+          "fact": "Anhang III ab 2. Dezember 2027",
+          "anyOf": ["2. Dezember 2027", "02.12.2027", "2.12.2027"]
+        }
+      ]
+    },
+    {
+      "id": "bussgelder",
+      "scene": null,
+      "mode": "chat",
+      "question": "Wie hoch können Bußgelder bei Verstößen gegen die KI-Verordnung sein?",
+      "enabledSources": ["notizen", "ki-mig", "wikipedia"],
+      "expectedSources": ["wikipedia"],
+      "keyFacts": [
+        { "fact": "bis zu 35 Millionen Euro", "anyOf": ["35 Millionen", "35 Mio"] },
+        { "fact": "oder 7 % des weltweiten Jahresumsatzes", "anyOf": ["7 %", "7 Prozent", "7%"] }
+      ]
+    }
+  ]
+}
