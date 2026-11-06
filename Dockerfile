@@ -22,14 +22,15 @@ COPY . .
 RUN pnpm build && pnpm build:migrate
 
 FROM node:24-bookworm-slim AS runtime
-ARG COMMIT=unknown
-LABEL org.opencontainers.image.source="https://github.com/denniskasper/my-notebook" \
-      org.opencontainers.image.revision="${COMMIT}" \
-      org.opencontainers.image.description="NotebookLM clone: Next.js app with Postgres"
 # curl is for the orchestrator's health check (`curl -f .../api/health`).
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
+# Declared after the apt layer so a new commit doesn't invalidate it.
+ARG COMMIT=unknown
+LABEL org.opencontainers.image.source="https://github.com/denniskasper/my-notebook" \
+      org.opencontainers.image.revision="${COMMIT}" \
+      org.opencontainers.image.description="NotebookLM clone: Next.js app with Postgres"
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     HOSTNAME=0.0.0.0 \

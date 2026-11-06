@@ -33,9 +33,7 @@ afterAll(() => onTestServer(`drop database if exists ${scratchName} with (force)
 
 describe('runMigrations', () => {
   it('lets two instances starting at once migrate an empty database without colliding', async () => {
-    await expect(
-      Promise.all([runMigrations(scratchUrl), runMigrations(scratchUrl)]),
-    ).resolves.toBeDefined();
+    await Promise.all([runMigrations(scratchUrl), runMigrations(scratchUrl)]);
 
     const client = new Client({ connectionString: scratchUrl });
     await client.connect();
