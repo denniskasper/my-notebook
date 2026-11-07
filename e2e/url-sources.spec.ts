@@ -30,7 +30,7 @@ test('a Visitor adds a web page as a Source and reads it with a link to the orig
   const source = sidebar.getByRole('listitem').filter({ hasText: 'Kommunale Wärmeplanung' });
   await expect(source.getByRole('switch', { name: strings.sources.enabledLabel })).toBeChecked();
   await expect(
-    page.getByText(format(strings.notebook.activeSources, { count: 1, total: 1 })),
+    page.getByText(format(strings.notebook.activeSources, { count: 1, total: 1 })).first(),
   ).toBeVisible();
 
   await source.getByRole('link', { name: 'Kommunale Wärmeplanung' }).click();
