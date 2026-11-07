@@ -43,7 +43,7 @@ For UI work, use the `frontend-design` skill.
 
 # FEEDBACK LOOPS
 
-Before committing, run `pnpm typecheck`, `pnpm lint` and `pnpm test` (skip any script `package.json` does not define yet) to ensure the tests pass. Postgres 18 is running in this sandbox with the databases from `DATABASE_URL` and `TEST_DATABASE_URL`.
+Before committing, run `pnpm format`, `pnpm typecheck`, `pnpm lint` and `pnpm test` (skip any script `package.json` does not define yet) to ensure the tests pass. Postgres 18 is running in this sandbox with the databases from `DATABASE_URL` and `TEST_DATABASE_URL`.
 
 # COMMIT
 

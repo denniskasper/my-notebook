@@ -1,11 +1,10 @@
-import { ArrowUp, FileText, Globe, Type } from 'lucide-react';
+import { ArrowUp } from 'lucide-react';
+import type { ReactNode } from 'react';
 
 import { strings } from '@/ui/strings';
 
-const SOURCE_KIND_ICONS = [Type, FileText, Globe] as const;
-
 /** The conversation centre of a Notebook without Sources: an invitation to add one. */
-export function EmptyConversation() {
+export function EmptyConversation({ addSource }: { addSource: ReactNode }) {
   const { conversation } = strings;
   return (
     <>
@@ -17,22 +16,7 @@ export function EmptyConversation() {
           <p className="mt-3 max-w-[54ch] text-[13.5px] leading-[1.6] text-muted">
             {conversation.emptyBody}
           </p>
-          {/* Inert until the Sources slice. */}
-          <div className="mt-7 flex flex-wrap gap-2">
-            {conversation.sourceKinds.map((label, index) => {
-              const Icon = SOURCE_KIND_ICONS[index] ?? Type;
-              return (
-                <button
-                  key={label}
-                  type="button"
-                  className="flex h-9 items-center gap-2 rounded-md border border-line px-3 text-text transition-colors hover:border-muted hover:bg-hover"
-                >
-                  <Icon size={14} aria-hidden className="text-muted" />
-                  {label}
-                </button>
-              );
-            })}
-          </div>
+          <div className="mt-7 flex flex-wrap gap-2">{addSource}</div>
         </section>
       </div>
       <Composer />

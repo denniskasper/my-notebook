@@ -37,6 +37,12 @@
       "skillPath": "skills/engineering/diagnosing-bugs/SKILL.md",
       "computedHash": "ede7254edbd22fcab97a0941511f7d440d8f9a249348fea97c50987ad5501674"
     },
+    "docker-expert": {
+      "source": "davila7/claude-code-templates",
+      "sourceType": "github",
+      "skillPath": "cli-tool/components/skills/development/docker-expert/SKILL.md",
+      "computedHash": "39564972e309678e25048d85451074b8e6d4c3f723416e1d3234ced421696505"
+    },
     "domain-modeling": {
       "source": "mattpocock/skills",
       "sourceType": "github",

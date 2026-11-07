@@ -1,7 +1,9 @@
-import { eq } from 'drizzle-orm';
+import { and, count, eq, gte, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
+import { berlinDayStart } from '@/platform/time';
 import { db } from '@/platform/db';
+import { env } from '@/platform/env';
 
 import { visitors } from './schema';
 
@@ -22,14 +24,24 @@ export async function createVisitor(input: { ipHash: string | null }): Promise<s
   return row.id;
 }
 
-/** Marks the Visitor as active now; false if it no longer exists (e.g. purged). */
+// `last_seen_at` only feeds the 30-day purge, so hourly precision is plenty and
+// most requests write nothing. Compared on the database clock, the one that writes it.
+const TOUCH_EVERY = sql.raw(`interval '1 hour'`);
+
+/**
+ * Marks the Visitor as active now, at most once an hour; false if it no longer
+ * exists (e.g. purged). One round trip, whether or not it writes.
+ */
 export async function touchVisitor(visitorId: string): Promise<boolean> {
-  const rows = await db()
-    .update(visitors)
-    .set({ lastSeenAt: new Date() })
-    .where(eq(visitors.id, visitorId))
-    .returning({ id: visitors.id });
-  return rows.length > 0;
+  const result = await db().execute<{ found: boolean }>(sql`
+    with touched as (
+      update ${visitors} set last_seen_at = now()
+      where id = ${visitorId} and last_seen_at < now() - ${TOUCH_EVERY}
+      returning id
+    )
+    select exists (select 1 from ${visitors} where id = ${visitorId}) as found
+  `);
+  return result.rows[0]?.found === true;
 }
 
 export async function findVisitor(visitorId: string) {
@@ -37,17 +49,44 @@ export async function findVisitor(visitorId: string) {
   return row ?? null;
 }
 
+/** A new Visitor, unless its IP already created `NEW_VISITORS_PER_IP_PER_DAY` today (Berlin). */
+async function createVisitorWithinIpLimit(ipHash: string | null): Promise<string | null> {
+  if (ipHash === null) return createVisitor({ ipHash });
+  return db().transaction(async (tx) => {
+    // Serialises new Visitors per IP, so a burst can't slip past the count.
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`visitor-ip:${ipHash}`}))`);
+    const [row] = await tx
+      .select({ created: count() })
+      .from(visitors)
+      .where(
+        and(
+          eq(visitors.createdIpHash, ipHash),
+          gte(visitors.createdAt, berlinDayStart(new Date())),
+        ),
+      );
+    if ((row?.created ?? 0) >= env().NEW_VISITORS_PER_IP_PER_DAY) return null;
+    const [visitor] = await tx
+      .insert(visitors)
+      .values({ createdIpHash: ipHash })
+      .returning({ id: visitors.id });
+    if (!visitor) throw new Error('Visitor insert returned no row');
+    return visitor.id;
+  });
+}
+
 /**
  * The Visitor behind a cookie value for a mutation: the existing one (touched),
  * or a new one when the cookie is missing, malformed or points to a deleted Visitor.
+ * `visitor_limit` when the IP may not create another Visitor today.
  */
 export async function resolveVisitor(input: {
   cookieValue: string | undefined;
   ipHash: string | null;
-}): Promise<{ visitorId: string; created: boolean }> {
+}): Promise<{ visitorId: string; created: boolean } | { error: 'visitor_limit' }> {
   const existing = parseVisitorId(input.cookieValue);
   if (existing && (await touchVisitor(existing))) {
     return { visitorId: existing, created: false };
   }
-  return { visitorId: await createVisitor({ ipHash: input.ipHash }), created: true };
+  const visitorId = await createVisitorWithinIpLimit(input.ipHash);
+  return visitorId ? { visitorId, created: true } : { error: 'visitor_limit' };
 }

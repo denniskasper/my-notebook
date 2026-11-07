@@ -8,6 +8,41 @@
       "when": 1793899900459,
       "tag": "0000_visitors_and_notebooks",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1793969265745,
+      "tag": "0001_sources_and_passages",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794001704815,
+      "tag": "0002_chat_and_usage",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1794049826576,
+      "tag": "0003_notes",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1794055373482,
+      "tag": "0004_studio_outputs",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1794069544006,
+      "tag": "0005_agent_run_cost",
+      "breakpoints": true
     }
   ]
 }

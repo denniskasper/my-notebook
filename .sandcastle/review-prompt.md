@@ -13,7 +13,7 @@ For each finding:
 - **Fix it** if you agree it's a real defect or a standards/spec gap. Preserve behaviour unless the finding is that the behaviour is wrong.
 - **Skip it** if it's wrong or not worth the change, and say why in one line.
 
-After fixing, run `pnpm typecheck`, `pnpm lint` and `pnpm test` (skip any script `package.json` does not define yet) and commit with a Conventional Commits subject, for example `refactor(chat): apply code review`. Don't push.
+After fixing, run `pnpm format`, `pnpm typecheck`, `pnpm lint` and `pnpm test` (skip any script `package.json` does not define yet) and commit with a Conventional Commits subject, for example `refactor(chat): apply code review`. Don't push.
 
 # OUTPUT
 

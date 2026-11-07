@@ -2,14 +2,60 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { z } from 'zod';
 
+import { AGENT_TASK_MAX_LENGTH } from '@/modules/agent';
+import { listMessages, QUESTION_MAX_LENGTH, type ChatMessage } from '@/modules/chat';
 import { getNotebook, NOTEBOOK_TITLE_MAX_LENGTH } from '@/modules/notebooks';
-import { strings } from '@/ui/strings';
-import { EmptyConversation, NotebookHeader, Sidebar, AppShell } from '@/ui/shell';
+import { listNotes, NOTE_BODY_MAX_LENGTH, NOTE_TITLE_MAX_LENGTH, type Note } from '@/modules/notes';
+import {
+  getSourceWithPassages,
+  listSources,
+  PDF_MAX_BYTES,
+  SOURCE_TEXT_MAX_LENGTH,
+  SOURCE_TITLE_MAX_LENGTH,
+  SOURCE_URL_MAX_LENGTH,
+  type Source,
+} from '@/modules/sources';
+import { buildInfo } from '@/platform/build';
+import { listStudioOutputs, type StudioOutput } from '@/modules/studio';
+import { env } from '@/platform/env';
+import { ChatPanel, type MessageView, type OpenCitation } from '@/ui/chat';
+import { NotesPanel, type NoteView } from '@/ui/notes';
+import { StudioPanel, type BriefingView } from '@/ui/studio';
+import { AppShell, EmptyConversation, NotebookHeader, Sidebar, type DrawerFocus } from '@/ui/shell';
+import {
+  AddSource,
+  SourceList,
+  SourceReader,
+  SourceReaderMissing,
+  type SourceLimits,
+  type SourceView,
+} from '@/ui/sources';
+import { format, strings, toErrorCode } from '@/ui/strings';
 
-import { createNotebookAction, deleteNotebookAction, renameNotebookAction } from '../../actions';
+import {
+  addTextSourceAction,
+  addUrlSourceAction,
+  clearChatAction,
+  createNoteAction,
+  createNotebookAction,
+  deleteNoteAction,
+  deleteNotebookAction,
+  deleteSourceAction,
+  generateBriefingAction,
+  renameNotebookAction,
+  retrySourceAction,
+  saveAnswerAsNoteAction,
+  setSourceEnabledAction,
+  updateNoteAction,
+} from '../../actions';
 import { loadSidebar } from '../../sidebar-data';
+import { usageChrome } from '../../usage-chrome';
+import { parseNoteParam, parseReaderParams } from './reader-params';
 
-type Props = { params: Promise<{ notebookId: string }> };
+type Props = {
+  params: Promise<{ notebookId: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
 
 async function loadNotebook(params: Props['params']) {
   const notebookId = z.uuid().safeParse((await params).notebookId);
@@ -17,7 +63,59 @@ async function loadNotebook(params: Props['params']) {
   if (!notebookId.success || !sidebar.visitorId) notFound();
   const notebook = await getNotebook(sidebar.visitorId, notebookId.data);
   if (!notebook) notFound();
-  return { notebook, notebooks: sidebar.notebooks };
+  return {
+    visitorId: sidebar.visitorId,
+    notebook,
+    notebooks: sidebar.notebooks,
+    spend: sidebar.spend,
+  };
+}
+
+function toSourceView(source: Source): SourceView {
+  return {
+    id: source.id,
+    kind: source.kind,
+    title: source.title,
+    status: source.status,
+    errorCode: source.errorCode === null ? null : toErrorCode(source.errorCode),
+    enabled: source.enabled,
+    tokenCount: source.tokenCount,
+    url: source.url,
+  };
+}
+
+function toMessageView(message: ChatMessage): MessageView {
+  return {
+    id: message.id,
+    role: message.role,
+    mode: message.mode,
+    status: message.status,
+    errorCode: message.errorCode === null ? null : toErrorCode(message.errorCode),
+    // Text parts and Steps have the same shape in the module and the view.
+    parts: message.parts,
+    costMicroUsd: message.costMicroUsd,
+    stored: true,
+  };
+}
+
+function toNoteView(note: Note): NoteView {
+  return {
+    id: note.id,
+    title: note.title,
+    body: note.body,
+    citations: note.citations,
+    updatedAt: note.updatedAt,
+  };
+}
+
+function toBriefingView(output: StudioOutput): BriefingView {
+  return {
+    id: output.id,
+    status: output.status,
+    errorCode: output.errorCode === null ? null : toErrorCode(output.errorCode),
+    content: output.content.map(({ text, citations }) => ({ text, citations })),
+    createdAt: output.createdAt,
+  };
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -25,29 +123,175 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return { title: `${notebook.title} – ${strings.app.name}` };
 }
 
-export default async function NotebookPage({ params }: Props) {
-  const { notebook, notebooks } = await loadNotebook(params);
+export default async function NotebookPage({ params, searchParams }: Props) {
+  const { visitorId, notebook, notebooks, spend } = await loadNotebook(params);
+  const { banner, meter } = usageChrome(spend);
+  const query = await searchParams;
+  const readerParams = parseReaderParams(query);
+  const openNoteId = parseNoteParam(query);
+  const [sources, messages, notes, studioOutputs, opened] = await Promise.all([
+    listSources(visitorId, notebook.id),
+    listMessages(visitorId, notebook.id),
+    listNotes(visitorId, notebook.id),
+    listStudioOutputs(visitorId, notebook.id),
+    readerParams.sourceId
+      ? getSourceWithPassages(visitorId, notebook.id, readerParams.sourceId)
+      : Promise.resolve(null),
+  ]);
+
+  const limits: SourceLimits = {
+    tokenCap: env().SOURCE_TOKEN_CAP,
+    titleMax: SOURCE_TITLE_MAX_LENGTH,
+    textMax: SOURCE_TEXT_MAX_LENGTH,
+    pdfMaxBytes: PDF_MAX_BYTES,
+    urlMax: SOURCE_URL_MAX_LENGTH,
+  };
+  const sourceViews = sources.map(toSourceView);
+  const active = sources.filter((source) => source.status === 'ready' && source.enabled).length;
+  const notebookPath = `/notebooks/${notebook.id}`;
+  const openCitation: OpenCitation = readerParams.sourceId
+    ? { sourceId: readerParams.sourceId, ordinals: readerParams.ordinals }
+    : null;
+  const sourceIds = sources.map((source) => source.id);
+  // A Citation opened from a Note keeps `?note=`: the reader comes to the front, the Note stays open.
+  let drawerFocus: DrawerFocus = null;
+  if (readerParams.sourceId) {
+    drawerFocus = {
+      key: `${readerParams.sourceId}:${readerParams.ordinals.join(',')}`,
+      tab: 'sources',
+    };
+  } else if (openNoteId) {
+    drawerFocus = { key: `note:${openNoteId}`, tab: 'notes' };
+  }
+  const spendBlock = spend.blocked && {
+    code: spend.blocked.reason,
+    retryAt: spend.blocked.retryAt?.toISOString() ?? null,
+  };
+  const chatSourceSummary =
+    sources.length === 0
+      ? strings.notebook.noSources
+      : format(strings.notebook.activeSources, { count: active, total: sources.length });
+
+  let reader = null;
+  if (opened) {
+    reader = (
+      <SourceReader
+        source={toSourceView(opened.source)}
+        passages={opened.passages}
+        highlight={readerParams.ordinals}
+        closeHref={notebookPath}
+        limits={limits}
+      />
+    );
+  } else if (readerParams.sourceId) {
+    reader = <SourceReaderMissing />;
+  }
+
   return (
     <AppShell
-      withDrawer
+      banner={banner}
+      drawer={{
+        reader,
+        studio: (
+          <StudioPanel
+            notebookId={notebook.id}
+            briefings={studioOutputs
+              .filter((output) => output.kind === 'briefing')
+              .map(toBriefingView)}
+            activeSourceCount={active}
+            existingSourceIds={sourceIds}
+            openCitation={openCitation}
+            blocked={spendBlock}
+            generateBriefing={generateBriefingAction}
+          />
+        ),
+        notes: (
+          <NotesPanel
+            notebookId={notebook.id}
+            notes={notes.map(toNoteView)}
+            openNoteId={openNoteId}
+            existingSourceIds={sourceIds}
+            openCitation={openCitation}
+            limits={{ titleMax: NOTE_TITLE_MAX_LENGTH, bodyMax: NOTE_BODY_MAX_LENGTH }}
+            actions={{
+              create: createNoteAction,
+              update: updateNoteAction,
+              remove: deleteNoteAction,
+            }}
+          />
+        ),
+        sourceCount: sources.length,
+        focus: drawerFocus,
+      }}
       sidebar={
         <Sidebar
           notebooks={notebooks}
           activeNotebookId={notebook.id}
           createNotebook={createNotebookAction}
+          footer={meter}
+          build={buildInfo()}
+          activeNotebookSources={
+            <>
+              <SourceList
+                notebookId={notebook.id}
+                sources={sourceViews}
+                openSourceId={opened?.source.id ?? null}
+                limits={limits}
+                actions={{
+                  setEnabled: setSourceEnabledAction,
+                  retry: retrySourceAction,
+                  remove: deleteSourceAction,
+                }}
+              />
+              <AddSource
+                placement="sidebar"
+                notebookId={notebook.id}
+                limits={limits}
+                addTextSource={addTextSourceAction}
+                addUrlSource={addUrlSourceAction}
+              />
+            </>
+          }
         />
       }
       header={
         <NotebookHeader
           key={notebook.title}
           notebook={{ id: notebook.id, title: notebook.title }}
+          sourceSummary={{ active, total: sources.length }}
           maxTitleLength={NOTEBOOK_TITLE_MAX_LENGTH}
           renameNotebook={renameNotebookAction}
           deleteNotebook={deleteNotebookAction}
         />
       }
     >
-      <EmptyConversation />
+      {sources.length === 0 && messages.length === 0 ? (
+        <EmptyConversation
+          addSource={
+            <AddSource
+              placement="conversation"
+              notebookId={notebook.id}
+              limits={limits}
+              addTextSource={addTextSourceAction}
+              addUrlSource={addUrlSourceAction}
+            />
+          }
+        />
+      ) : (
+        <ChatPanel
+          notebookId={notebook.id}
+          messages={messages.map(toMessageView)}
+          existingSourceIds={sourceIds}
+          openCitation={openCitation}
+          canSubmitQuestion={active > 0}
+          blocked={spendBlock}
+          sourceSummary={chatSourceSummary}
+          questionMaxLength={QUESTION_MAX_LENGTH}
+          taskMaxLength={AGENT_TASK_MAX_LENGTH}
+          clearChat={clearChatAction}
+          saveAsNote={saveAnswerAsNoteAction}
+        />
+      )}
     </AppShell>
   );
 }

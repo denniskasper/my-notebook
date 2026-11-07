@@ -30,6 +30,18 @@ export default defineConfig({
             NODE_ENV: 'test',
             DATABASE_URL: process.env.TEST_DATABASE_URL ?? '',
             LOG_LEVEL: 'silent',
+            LLM_MODE: 'fake',
+            SOURCE_TOKEN_CAP: '1000',
+            // Small caps so a few Sonnet-sized calls reach them (total above daily to tell them apart).
+            DAILY_ALLOWANCE_USD: '0.01',
+            DEMO_BUDGET_DAILY_USD: '0.03',
+            DEMO_BUDGET_TOTAL_USD: '0.05',
+            CHAT_RATE_LIMIT_PER_HOUR: '30',
+            BRIEFING_RATE_LIMIT_PER_HOUR: '3',
+            AGENT_CONCURRENCY_LIMIT: '2',
+            NEW_VISITORS_PER_IP_PER_DAY: '5',
+            // The URL Source tests serve their pages on this loopback port.
+            URL_FETCH_TEST_LOOPBACK_PORT: '3198',
           },
         },
       },

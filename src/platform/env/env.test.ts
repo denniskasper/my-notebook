@@ -41,4 +41,76 @@ describe('parseEnv', () => {
   it('rejects an unknown log level', () => {
     expect(() => parseEnv({ ...base, LOG_LEVEL: 'loud' })).toThrow(/LOG_LEVEL/);
   });
+
+  it('defaults to the fake LLM and an 80K Source token cap', () => {
+    const env = parseEnv(base);
+    expect(env.LLM_MODE).toBe('fake');
+    expect(env.SOURCE_TOKEN_CAP).toBe(80_000);
+  });
+
+  it('reads the Source token cap as a positive integer', () => {
+    expect(parseEnv({ ...base, SOURCE_TOKEN_CAP: '1000' }).SOURCE_TOKEN_CAP).toBe(1000);
+    expect(() => parseEnv({ ...base, SOURCE_TOKEN_CAP: '0' })).toThrow(/SOURCE_TOKEN_CAP/);
+    expect(() => parseEnv({ ...base, SOURCE_TOKEN_CAP: 'viel' })).toThrow(/SOURCE_TOKEN_CAP/);
+  });
+
+  it('requires ANTHROPIC_API_KEY for the real LLM', () => {
+    expect(() => parseEnv({ ...base, LLM_MODE: 'real' })).toThrow(/ANTHROPIC_API_KEY/);
+    expect(parseEnv({ ...base, LLM_MODE: 'real', ANTHROPIC_API_KEY: 'key' }).LLM_MODE).toBe('real');
+    expect(() => parseEnv({ ...base, LLM_MODE: 'live' })).toThrow(/LLM_MODE/);
+  });
+
+  it('defaults the spend caps and rate limits to the Budget guard values', () => {
+    expect(parseEnv(base)).toMatchObject({
+      DEMO_BUDGET_DAILY_USD: 2,
+      DEMO_BUDGET_TOTAL_USD: 13,
+      DAILY_ALLOWANCE_USD: 0.5,
+      CHAT_RATE_LIMIT_PER_HOUR: 30,
+      AGENT_RATE_LIMIT_PER_HOUR: 3,
+      BRIEFING_RATE_LIMIT_PER_HOUR: 3,
+      AGENT_CONCURRENCY_LIMIT: 2,
+      NEW_VISITORS_PER_IP_PER_DAY: 5,
+      AGENT_MAX_WEB_SEARCHES: 3,
+      AGENT_MAX_PAGE_READS: 5,
+      AGENT_MAX_SOURCES_ADDED: 2,
+    });
+  });
+
+  it('reads the caps from the environment and rejects nonsense', () => {
+    expect(parseEnv({ ...base, DAILY_ALLOWANCE_USD: '0.0001' }).DAILY_ALLOWANCE_USD).toBe(0.0001);
+    expect(parseEnv({ ...base, CHAT_RATE_LIMIT_PER_HOUR: '1' }).CHAT_RATE_LIMIT_PER_HOUR).toBe(1);
+    expect(() => parseEnv({ ...base, DEMO_BUDGET_DAILY_USD: '-1' })).toThrow(
+      /DEMO_BUDGET_DAILY_USD/,
+    );
+    expect(() => parseEnv({ ...base, AGENT_CONCURRENCY_LIMIT: '1.5' })).toThrow(
+      /AGENT_CONCURRENCY_LIMIT/,
+    );
+  });
+
+  it('refuses CLAUDE_CODE_OAUTH_TOKEN in production, where only the production key may pay', () => {
+    const production = { ...base, NODE_ENV: 'production', IP_HASH_SECRET: 'x'.repeat(32) };
+    expect(() => parseEnv({ ...production, CLAUDE_CODE_OAUTH_TOKEN: 'token' })).toThrow(
+      /CLAUDE_CODE_OAUTH_TOKEN/,
+    );
+    expect(() => parseEnv(production)).not.toThrow();
+    expect(() => parseEnv({ ...base, CLAUDE_CODE_OAUTH_TOKEN: 'token' })).not.toThrow();
+  });
+
+  it('reads the test-only loopback port for the URL fetcher, refused with the real LLM', () => {
+    expect(parseEnv(base).URL_FETCH_TEST_LOOPBACK_PORT).toBeUndefined();
+    expect(
+      parseEnv({ ...base, URL_FETCH_TEST_LOOPBACK_PORT: '3101' }).URL_FETCH_TEST_LOOPBACK_PORT,
+    ).toBe(3101);
+    expect(() => parseEnv({ ...base, URL_FETCH_TEST_LOOPBACK_PORT: '0' })).toThrow(
+      /URL_FETCH_TEST_LOOPBACK_PORT/,
+    );
+    expect(() =>
+      parseEnv({
+        ...base,
+        LLM_MODE: 'real',
+        ANTHROPIC_API_KEY: 'key',
+        URL_FETCH_TEST_LOOPBACK_PORT: '3101',
+      }),
+    ).toThrow(/URL_FETCH_TEST_LOOPBACK_PORT/);
+  });
 });

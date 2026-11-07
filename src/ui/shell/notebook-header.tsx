@@ -18,6 +18,8 @@ export type ActionResult = { ok: true } | { ok: false; error: ErrorCode } | null
 
 type Props = {
   notebook: { id: string; title: string };
+  /** Enabled ready Sources and all Sources, for the header summary. */
+  sourceSummary: { active: number; total: number };
   maxTitleLength: number;
   renameNotebook: (previous: ActionResult, formData: FormData) => Promise<ActionResult>;
   deleteNotebook: (formData: FormData) => Promise<void>;
@@ -26,6 +28,7 @@ type Props = {
 /** Notebook title with rename and delete (polish tier: may be rough). */
 export function NotebookHeader({
   notebook,
+  sourceSummary,
   maxTitleLength,
   renameNotebook,
   deleteNotebook,
@@ -75,7 +78,14 @@ export function NotebookHeader({
       ) : (
         <>
           <h1 className="truncate text-[14px] font-semibold">{notebook.title}</h1>
-          <span className="shrink-0 text-faint max-sm:hidden">{strings.notebook.noSources}</span>
+          <span className="shrink-0 text-faint tabular-nums max-sm:hidden">
+            {sourceSummary.total === 0
+              ? strings.notebook.noSources
+              : format(strings.notebook.activeSources, {
+                  count: sourceSummary.active,
+                  total: sourceSummary.total,
+                })}
+          </span>
           <span className="flex-1" />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

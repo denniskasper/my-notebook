@@ -57,6 +57,9 @@
     background: var(--color-bg);
     color: var(--color-text);
     font: 400 13px/1.45 var(--font-ui);
+    /* Instrument Sans has a very narrow word space (~2px at 12px): small labels read as
+       "100%übrig" and "v0.1.0·dc3592c". A little extra spacing restores the gaps. */
+    word-spacing: 0.08em;
     -webkit-font-smoothing: antialiased;
   }
   :focus-visible {
@@ -77,4 +80,44 @@
   min-height: 0;
   scrollbar-width: thin;
   scrollbar-color: var(--color-line) transparent;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% + 6px));
+  }
+}
+
+/* A processing Source: a faint hairline that breathes under its title. */
+@keyframes processing-pulse {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: scaleX(0.35);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scaleX(1);
+  }
+}
+
+/* A Passage a Citation points to: the amber wash settles once. */
+@keyframes passage-highlight {
+  from {
+    background-color: rgb(230 195 92 / 0.32);
+  }
+}
+
+/* The streaming caret. */
+@keyframes caret-blink {
+  to {
+    visibility: hidden;
+  }
 }

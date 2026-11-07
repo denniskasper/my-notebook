@@ -13,6 +13,7 @@ export default tseslint.config(
   {
     ignores: [
       '.next/**',
+      'dist/**',
       '.sandcastle/**',
       '.agents/**',
       '.claude/**',
