@@ -1,12 +1,12 @@
 'use client';
 
-import { ArrowUp, Eraser, Square } from 'lucide-react';
+import { ArrowUp, Eraser, Hourglass, Square } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
 
 import { readSseEvents } from '@/platform/http';
 import { cn } from '@/ui/cn';
-import { errorMessage, strings, type ErrorCode } from '@/ui/strings';
+import { errorMessage, retryValues, strings, type ErrorCode } from '@/ui/strings';
 
 import { chatEventSchema, type ChatEvent } from './events';
 import { Message } from './message';
@@ -27,12 +27,22 @@ type Props = {
   openCitation: OpenCitation;
   /** Whether the Notebook has an enabled, ready Source to ground answers in. */
   canSubmitQuestion: boolean;
+  /** Spend caps that close the composer until `retryAt` (ISO; null: not on its own). */
+  blocked: ComposerBlock | null;
   /** e.g. „2 von 3 Quellen aktiv“ or „Keine Quellen“. */
   sourceSummary: string;
   questionMaxLength: number;
   clearChat: (formData: FormData) => Promise<void>;
   saveAsNote: SaveAsNote;
 };
+
+export type ComposerBlock = {
+  code: 'daily_allowance' | 'demo_budget_daily' | 'demo_budget_total';
+  retryAt: string | null;
+};
+
+/** A refused or failed question, with the values its message needs. */
+type ComposerError = { code: ErrorCode; values: Record<string, string | number> };
 
 /** The question being answered right now, until the stored conversation has it. */
 type Pending = {
@@ -51,6 +61,7 @@ export function ChatPanel({
   existingSourceIds,
   openCitation,
   canSubmitQuestion,
+  blocked,
   sourceSummary,
   questionMaxLength,
   clearChat,
@@ -59,9 +70,15 @@ export function ChatPanel({
   const router = useRouter();
   const [draft, setDraft] = useState('');
   const [pending, setPending] = useState<Pending | null>(null);
-  const [error, setError] = useState<ErrorCode | null>(null);
+  const [error, setError] = useState<ComposerError | null>(null);
   const stopRef = useRef<AbortController | null>(null);
   const streaming = pending?.status === 'streaming';
+  const composerOpen = canSubmitQuestion && blocked === null;
+  // The Demo budget has its app-wide banner; only the Visitor's own allowance is told here.
+  const allowanceMessage =
+    blocked?.code === 'daily_allowance'
+      ? errorMessage(blocked.code, blocked.retryAt ? retryValues(blocked.retryAt, new Date()) : {})
+      : null;
 
   // The stored answer replaces the pending one once it is no longer streaming.
   const stored = pending?.assistantMessageId
@@ -96,9 +113,12 @@ export function ChatPanel({
     stick();
 
     // Before `started` nothing was stored: give the question back to edit and resend.
-    const refuse = (code: ErrorCode) => {
+    const refuse = (code: ErrorCode, retryAt?: string) => {
       setPending(null);
-      setError(code);
+      setError({
+        code,
+        values: { max: questionMaxLength, ...(retryAt && retryValues(retryAt, new Date())) },
+      });
       setDraft(question);
     };
 
@@ -113,7 +133,7 @@ export function ChatPanel({
         throw new Error(`Chat request failed: ${response.status}`);
       for await (const event of readSseEvents(response.body, chatEventSchema)) {
         if (event.type === 'started') started = true;
-        if (event.type === 'error' && !started) refuse(event.error);
+        if (event.type === 'error' && !started) refuse(event.error, event.retryAt);
         else setPending((current) => current && apply(current, event));
       }
     } catch {
@@ -141,7 +161,7 @@ export function ChatPanel({
   function submit(event?: FormEvent) {
     event?.preventDefault();
     const question = draft.trim();
-    if (!canSubmitQuestion || streaming || question === '') return;
+    if (!composerOpen || streaming || question === '') return;
     void streamQuestion(question);
   }
 
@@ -176,13 +196,23 @@ export function ChatPanel({
       </div>
 
       <div className="shrink-0 px-5 pb-[18px]">
-        {error && (
+        {allowanceMessage ? (
           <p
-            role="alert"
-            className="mx-auto mb-2 max-w-[700px] px-1 text-[12px] leading-snug text-danger"
+            role="status"
+            className="mx-auto mb-2 flex max-w-[700px] items-center gap-2 px-1 text-[12.5px] leading-snug text-soft"
           >
-            {errorMessage(error, { max: questionMaxLength })}
+            <Hourglass size={12} aria-hidden className="shrink-0 text-muted" />
+            {allowanceMessage}
           </p>
+        ) : (
+          error && (
+            <p
+              role="alert"
+              className="mx-auto mb-2 max-w-[700px] px-1 text-[12px] leading-snug text-danger"
+            >
+              {errorMessage(error.code, error.values)}
+            </p>
+          )
         )}
         <form
           onSubmit={submit}
@@ -192,7 +222,8 @@ export function ChatPanel({
             value={draft}
             onChange={setDraft}
             onSubmit={() => submit()}
-            disabled={!canSubmitQuestion}
+            disabled={!composerOpen}
+            disabledHint={blocked ? strings.usage.composerPaused : strings.chat.noActiveSources}
             maxLength={questionMaxLength}
           />
           <div className="flex items-center gap-2">
@@ -228,7 +259,7 @@ export function ChatPanel({
             ) : (
               <button
                 type="submit"
-                disabled={!canSubmitQuestion || draft.trim() === ''}
+                disabled={!composerOpen || draft.trim() === ''}
                 aria-label={strings.conversation.send}
                 title={strings.conversation.send}
                 className="grid size-7 place-items-center rounded-md bg-text text-bg transition-opacity disabled:opacity-30"
@@ -313,11 +344,20 @@ type TextareaProps = {
   onChange: (value: string) => void;
   onSubmit: () => void;
   disabled: boolean;
+  /** The placeholder while disabled: why the composer is closed. */
+  disabledHint: string;
   maxLength: number;
 };
 
 /** Grows with the question up to a few lines; Enter sends, Shift+Enter breaks the line. */
-function AutoSizeTextarea({ value, onChange, onSubmit, disabled, maxLength }: TextareaProps) {
+function AutoSizeTextarea({
+  value,
+  onChange,
+  onSubmit,
+  disabled,
+  disabledHint,
+  maxLength,
+}: TextareaProps) {
   const ref = useRef<HTMLTextAreaElement>(null);
   useLayoutEffect(() => {
     const element = ref.current;
@@ -340,9 +380,7 @@ function AutoSizeTextarea({ value, onChange, onSubmit, disabled, maxLength }: Te
         }
       }}
       aria-label={strings.conversation.composerPlaceholder}
-      placeholder={
-        disabled ? strings.chat.noActiveSources : strings.conversation.composerPlaceholder
-      }
+      placeholder={disabled ? disabledHint : strings.conversation.composerPlaceholder}
       className="block h-[42px] w-full resize-none bg-transparent text-[13.5px] leading-[1.5] outline-none placeholder:text-faint disabled:cursor-not-allowed"
     />
   );

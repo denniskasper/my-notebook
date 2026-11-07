@@ -17,6 +17,9 @@ describe('chatEventSchema', () => {
       { type: 'done', status: 'complete' },
       { type: 'done', status: 'stopped' },
       { type: 'error', error: 'llm_failed' },
+      { type: 'error', error: 'daily_allowance', retryAt: '2026-11-07T23:00:00.000Z' },
+      { type: 'error', error: 'rate_limited', retryAt: '2026-11-07T12:20:00.000Z' },
+      { type: 'error', error: 'demo_budget_total' },
     ];
     for (const event of events) expect(chatEventSchema.parse(event)).toEqual(event);
   });
@@ -32,6 +35,7 @@ describe('chatEventSchema', () => {
       },
       { type: 'done', status: 'streaming' },
       { type: 'error', error: 'kaputt' },
+      { type: 'error', error: 'rate_limited', retryAt: 'in zehn Minuten' },
     ];
     for (const event of invalid) expect(chatEventSchema.safeParse(event).success).toBe(false);
   });

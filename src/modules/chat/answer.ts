@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 import { getNotebook } from '@/modules/notebooks';
 import { listPromptSources } from '@/modules/sources';
-import { estimateOutputTokens, recordUsage } from '@/modules/usage';
+import { checkUsage, estimateOutputTokens, recordUsage, type UsageBlock } from '@/modules/usage';
 import { db } from '@/platform/db';
 import { llm, type ChatRequest, type LlmUsage } from '@/platform/llm';
 import { logger } from '@/platform/logging';
@@ -20,7 +20,12 @@ export const QUESTION_MAX_LENGTH = 4_000;
 export const questionSchema = z.string().trim().min(1).max(QUESTION_MAX_LENGTH);
 
 export type ChatErrorCode =
-  'not_found' | 'invalid_question' | 'no_active_sources' | 'chat_busy' | 'llm_failed';
+  | 'not_found'
+  | 'invalid_question'
+  | 'no_active_sources'
+  | 'chat_busy'
+  | 'llm_failed'
+  | UsageBlock['reason'];
 
 /** What a streamed answer reports, in order (the Route Handler sends them as SSE). */
 export type ChatEvent =
@@ -28,7 +33,8 @@ export type ChatEvent =
   | { type: 'text'; part: number; text: string }
   | { type: 'citation'; part: number; citation: Citation }
   | { type: 'done'; status: 'complete' | 'stopped' }
-  | { type: 'error'; error: ChatErrorCode };
+  /** `retryAt` (ISO): when a Budget guard refusal ends, if it ends on its own. */
+  | { type: 'error'; error: ChatErrorCode; retryAt?: string };
 
 type Options = {
   /** Aborted when the Visitor stops the answer (or goes away). */
@@ -42,6 +48,7 @@ type Options = {
  * and a `streaming` answer, streams the answer with its Citations, and stores
  * it as `complete`, `stopped` (signal aborted) or `failed`. Every LLM call is
  * recorded in the usage ledger, an aborted one with its output estimated.
+ * The Budget guard is checked first; a refused question stores nothing.
  */
 export async function answerQuestion(
   input: { visitorId: string; notebookId: string; question: string },
@@ -64,6 +71,16 @@ export async function answerQuestion(
 
   const sources = await listPromptSources(visitorId, notebookId);
   if (sources.length === 0) return emit({ type: 'error', error: 'no_active_sources' });
+
+  const block = await checkUsage({ visitorId, feature: 'chat' });
+  if (block) {
+    logger().info({ event: 'chat.refused', reason: block.reason });
+    return emit({
+      type: 'error',
+      error: block.reason,
+      ...(block.retryAt && { retryAt: block.retryAt.toISOString() }),
+    });
+  }
 
   const history = toHistory(await listMessages(visitorId, notebookId));
   const sourceTokens = sources.reduce((sum, source) => sum + source.tokenCount, 0);

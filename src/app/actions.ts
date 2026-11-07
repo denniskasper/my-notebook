@@ -29,7 +29,7 @@ import {
   sourceTextSchema,
   sourceTitleSchema,
 } from '@/modules/sources';
-import { ensureVisitor } from '@/modules/visitors';
+import { ensureVisitor, VisitorLimitError } from '@/modules/visitors';
 import { requestLogger } from '@/platform/logging';
 import type { ActionResult } from '@/ui/shell';
 import { strings } from '@/ui/strings';
@@ -38,7 +38,14 @@ const notebookIdSchema = z.object({ notebookId: z.uuid() });
 const renameSchema = notebookIdSchema.extend({ title: notebookTitleSchema });
 
 export async function createNotebookAction(): Promise<void> {
-  const visitorId = await ensureVisitor();
+  let visitorId: string;
+  try {
+    visitorId = await ensureVisitor();
+  } catch (error) {
+    if (!(error instanceof VisitorLimitError)) throw error;
+    (await requestLogger()).warn({ event: 'visitor.limit_reached' });
+    redirect('/?error=visitor_limit');
+  }
   const notebook = await createNotebook(visitorId, strings.notebook.untitled);
   (await requestLogger()).info({ event: 'notebook.created', notebookId: notebook.id });
   revalidatePath('/', 'layout');

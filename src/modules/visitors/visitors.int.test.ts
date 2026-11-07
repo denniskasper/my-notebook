@@ -48,8 +48,39 @@ describe('resolveVisitor', () => {
     ['a cookie of a deleted Visitor', '019a5a1e-7c2b-7d4e-9f00-123456789abc'],
   ])('creates a new Visitor for %s', async (_case, cookieValue) => {
     const result = await resolveVisitor({ cookieValue, ipHash: 'hash' });
+    if (!('visitorId' in result)) throw new Error('No Visitor was created');
     expect(result.created).toBe(true);
     expect(result.visitorId).not.toBe(cookieValue);
     expect(await findVisitor(result.visitorId)).toMatchObject({ createdIpHash: 'hash' });
+  });
+
+  it('creates at most five new Visitors per IP hash per day', async () => {
+    for (let i = 0; i < 5; i += 1) {
+      expect(await resolveVisitor({ cookieValue: undefined, ipHash: 'busy' })).toMatchObject({
+        created: true,
+      });
+    }
+    expect(await resolveVisitor({ cookieValue: undefined, ipHash: 'busy' })).toEqual({
+      error: 'visitor_limit',
+    });
+    // Other IPs, unknown IPs and returning Visitors from the same IP are not affected.
+    expect(await resolveVisitor({ cookieValue: undefined, ipHash: 'other' })).toMatchObject({
+      created: true,
+    });
+    expect(await resolveVisitor({ cookieValue: undefined, ipHash: null })).toMatchObject({
+      created: true,
+    });
+    const returning = await createVisitor({ ipHash: 'busy' });
+    expect(await resolveVisitor({ cookieValue: returning, ipHash: 'busy' })).toEqual({
+      visitorId: returning,
+      created: false,
+    });
+  });
+
+  it('keeps to the limit when new Visitors arrive at the same time', async () => {
+    const results = await Promise.all(
+      Array.from({ length: 8 }, () => resolveVisitor({ cookieValue: undefined, ipHash: 'burst' })),
+    );
+    expect(results.filter((result) => 'visitorId' in result)).toHaveLength(5);
   });
 });
