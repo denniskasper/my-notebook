@@ -38,9 +38,9 @@ No key is shared between environments, and CI never holds the production LLM key
 | Secret | Stored in | Used by |
 | --- | --- | --- |
 | Anthropic key, production workspace (spend limit) | Dokploy app environment | The app |
-| Anthropic key, dev/eval workspace (smaller spend limit) | GitHub Actions secret | The AI eval workflow, started by hand |
-| Tailscale OAuth client | GitHub Actions secret | The deploy job, to join the tailnet |
-| Dokploy API key and application id | GitHub Actions secret | The deploy job |
+| Anthropic key, dev/eval workspace (smaller spend limit) | Secret of a separate GitHub environment | The AI eval workflow, started by hand |
+| Tailscale OAuth client | Secret of the GitHub `production` environment (deploys from `main` only) | The deploy job, to join the tailnet |
+| Dokploy API key and application id | Secret of the GitHub `production` environment | The deploy job |
 | Visitor IP hashing secret | Dokploy app environment | Rate limits per IP, without storing IPs |
 | Claude subscription token | Agent server only | Coding agents during development |
 

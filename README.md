@@ -9,11 +9,16 @@ This app is built mostly by AI coding agents, with a human steering the work.
 - **T3 Code is the ADE (agentic development environment).** All agent sessions run in T3 Code.
 - **A remote T3 Code server does most of the work.** It runs 24/7, so agents keep working on tickets while the laptop is closed. The laptop and phone only connect to it to steer, review, and approve.
 
-[![System map: agent server, GitHub, self-hosted server and Anthropic API](docs/infrastructure.svg)](docs/infrastructure.md)
+## Credits and inspiration
+
+- **Skills and software factory by Matt Pocock.** Most of the agent skills in `.agents/skills/` (grilling, wayfinder, tdd, code-review and more) come from [mattpocock/skills](https://github.com/mattpocock/skills), and the build loop runs on his [Sandcastle](https://github.com/mattpocock/sandcastle).
+- **Inspired by** [Matt Pocock](https://www.youtube.com/@mattpocockuk), [Theo](https://www.youtube.com/@t3dotgg) (T3 Code) and [Web Dev Cody](https://www.youtube.com/@WebDevCody). Their videos on working with AI coding agents shaped how this project is built.
 
 ## Infrastructure
 
 Every merge to `main` is tested, scanned, built into an image and deployed to Dokploy on a self-hosted server over a private tailnet; an unhealthy release rolls back on its own. [docs/infrastructure.md](docs/infrastructure.md) has the system map, the deploy and rollback flow, and where each secret lives.
+
+[![System map: agent server, GitHub, self-hosted server and Anthropic API](docs/infrastructure.svg)](docs/infrastructure.md)
 
 ## Local development
 
