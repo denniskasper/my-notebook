@@ -13,6 +13,14 @@ import {
   renameNotebook,
 } from '@/modules/notebooks';
 import {
+  createNote,
+  deleteNote,
+  noteBodySchema,
+  noteTitleSchema,
+  saveAnswerAsNote,
+  updateNote,
+} from '@/modules/notes';
+import {
   addTextSource,
   deleteSource,
   processSource,
@@ -148,4 +156,75 @@ export async function clearChatAction(formData: FormData): Promise<void> {
     (await requestLogger()).info({ event: 'chat.cleared', notebookId: input.data.notebookId });
   }
   revalidatePath(`/notebooks/${input.data.notebookId}`);
+}
+
+const noteInputSchema = notebookIdSchema.extend({ title: noteTitleSchema, body: noteBodySchema });
+const noteIdSchema = notebookIdSchema.extend({ noteId: z.uuid() });
+
+/** Maps an invalid Note form onto the field it failed on. */
+function noteInputError(error: z.ZodError): ActionResult {
+  const field = error.issues[0]?.path[0];
+  if (field === 'title') return { ok: false, error: 'invalid_note_title' };
+  if (field === 'body') return { ok: false, error: 'invalid_note_body' };
+  return { ok: false, error: 'note_not_found' };
+}
+
+/** Creates a hand-written Note and opens it in the Notes tab. */
+export async function createNoteAction(
+  _previous: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  const input = noteInputSchema.safeParse(Object.fromEntries(formData));
+  if (!input.success) return noteInputError(input.error);
+  const { notebookId, title, body } = input.data;
+  const visitorId = await ensureVisitor();
+  const note = await createNote(visitorId, notebookId, { title, body });
+  if (!note) return { ok: false, error: 'not_found' };
+  (await requestLogger()).info({ event: 'note.created', noteId: note.id });
+  revalidatePath(`/notebooks/${notebookId}`);
+  redirect(`/notebooks/${notebookId}?note=${note.id}`);
+}
+
+export async function updateNoteAction(
+  _previous: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  const input = noteInputSchema.extend(noteIdSchema.shape).safeParse(Object.fromEntries(formData));
+  if (!input.success) return noteInputError(input.error);
+  const { notebookId, noteId, title, body } = input.data;
+  const visitorId = await ensureVisitor();
+  const note = await updateNote(visitorId, notebookId, noteId, { title, body });
+  if (!note) return { ok: false, error: 'note_not_found' };
+  (await requestLogger()).info({ event: 'note.updated', noteId });
+  revalidatePath(`/notebooks/${notebookId}`);
+  return { ok: true };
+}
+
+export async function deleteNoteAction(formData: FormData): Promise<void> {
+  const input = noteIdSchema.safeParse(Object.fromEntries(formData));
+  if (!input.success) return;
+  const { notebookId, noteId } = input.data;
+  const visitorId = await ensureVisitor();
+  if (await deleteNote(visitorId, notebookId, noteId)) {
+    (await requestLogger()).info({ event: 'note.deleted', noteId });
+  }
+  revalidatePath(`/notebooks/${notebookId}`);
+}
+
+const saveAnswerSchema = notebookIdSchema.extend({ messageId: z.uuid() });
+
+/** Copies an answer into a new Note (Citations included) and opens it in the Notes tab. */
+export async function saveAnswerAsNoteAction(
+  _previous: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  const input = saveAnswerSchema.safeParse(Object.fromEntries(formData));
+  if (!input.success) return { ok: false, error: 'answer_not_found' };
+  const { notebookId, messageId } = input.data;
+  const visitorId = await ensureVisitor();
+  const note = await saveAnswerAsNote(visitorId, notebookId, messageId);
+  if (!note) return { ok: false, error: 'answer_not_found' };
+  (await requestLogger()).info({ event: 'note.saved_from_answer', noteId: note.id, messageId });
+  revalidatePath(`/notebooks/${notebookId}`);
+  redirect(`/notebooks/${notebookId}?note=${note.id}`);
 }

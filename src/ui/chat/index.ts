@@ -1,4 +1,6 @@
 export { ChatPanel } from './chat-panel';
+export { CitationChip, isOpenCitation } from './citation-chip';
+export type { SaveAsNote } from './save-as-note';
 export {
   CHAT_ERROR_CODES,
   chatEventSchema,

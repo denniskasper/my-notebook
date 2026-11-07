@@ -8,6 +8,7 @@ import { cn } from '@/ui/cn';
 import { format, strings } from '@/ui/strings';
 
 import type { CitationView } from './events';
+import type { OpenCitation } from './types';
 
 type Props = {
   /** The chip's number within its answer, from 1. */
@@ -18,6 +19,8 @@ type Props = {
   sourceExists: boolean;
   /** Its Passages are the ones the reader shows right now. */
   open: boolean;
+  /** Query parameters the link keeps, e.g. the open Note. */
+  keep?: Record<string, string>;
 };
 
 const CHIP =
@@ -25,7 +28,7 @@ const CHIP =
 const FILLED = 'border-hl bg-hl text-[#1a1606]';
 
 /** An amber Citation chip; hovering or focusing it shows the cited Source and quote. */
-export function CitationChip({ n, citation, notebookId, sourceExists, open }: Props) {
+export function CitationChip({ n, citation, notebookId, sourceExists, open, keep = {} }: Props) {
   if (!sourceExists) {
     return (
       <QuoteTooltip citation={citation} deleted>
@@ -45,7 +48,12 @@ export function CitationChip({ n, citation, notebookId, sourceExists, open }: Pr
     );
   }
 
-  const href = `/notebooks/${notebookId}?source=${citation.sourceId}&p=${citation.ordinals.join(',')}`;
+  const query = new URLSearchParams({
+    ...keep,
+    source: citation.sourceId,
+    p: citation.ordinals.join(','),
+  });
+  const href = `/notebooks/${notebookId}?${query.toString().replaceAll('%2C', ',')}`;
   return (
     <QuoteTooltip citation={citation}>
       <Link
@@ -62,6 +70,20 @@ export function CitationChip({ n, citation, notebookId, sourceExists, open }: Pr
         {n}
       </Link>
     </QuoteTooltip>
+  );
+}
+
+/** Whether the reader shows exactly this Citation's Passages right now. */
+export function isOpenCitation(
+  open: OpenCitation,
+  sourceId: string,
+  ordinals: readonly number[],
+): boolean {
+  return (
+    open !== null &&
+    open.sourceId === sourceId &&
+    open.ordinals.length === ordinals.length &&
+    open.ordinals.every((ordinal, index) => ordinal === ordinals[index])
   );
 }
 

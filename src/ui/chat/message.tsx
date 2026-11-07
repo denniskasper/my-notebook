@@ -3,13 +3,15 @@ import { Tooltip } from 'radix-ui';
 import { cn } from '@/ui/cn';
 import { errorMessage, strings } from '@/ui/strings';
 
-import { CitationChip } from './citation-chip';
+import { CitationChip, isOpenCitation } from './citation-chip';
+import { SaveAsNoteButton, type SaveAsNote } from './save-as-note';
 import type { MessageView, OpenCitation } from './types';
 
 type Context = {
   notebookId: string;
   existingSourceIds: ReadonlySet<string>;
   openCitation: OpenCitation;
+  saveAsNote: SaveAsNote;
 };
 
 /** A question (right, compact) or an answer (left, set like the Sources it cites). */
@@ -29,20 +31,12 @@ export function Message({ message, ...context }: { message: MessageView } & Cont
   return <Answer message={message} {...context} />;
 }
 
-function isOpen(open: OpenCitation, sourceId: string, ordinals: readonly number[]): boolean {
-  return (
-    open !== null &&
-    open.sourceId === sourceId &&
-    open.ordinals.length === ordinals.length &&
-    open.ordinals.every((ordinal, index) => ordinal === ordinals[index])
-  );
-}
-
 function Answer({
   message,
   notebookId,
   existingSourceIds,
   openCitation,
+  saveAsNote,
 }: { message: MessageView } & Context) {
   const streaming = message.status === 'streaming';
   const empty = message.parts.every((part) => part.text === '' && part.citations.length === 0);
@@ -79,7 +73,7 @@ function Answer({
                       citation={citation}
                       notebookId={notebookId}
                       sourceExists={existingSourceIds.has(citation.sourceId)}
-                      open={isOpen(openCitation, citation.sourceId, citation.ordinals)}
+                      open={isOpenCitation(openCitation, citation.sourceId, citation.ordinals)}
                     />
                   );
                 })}
@@ -87,6 +81,13 @@ function Answer({
             ))}
             {streaming && <Caret />}
           </p>
+        )}
+        {!streaming && !empty && message.status !== 'failed' && message.stored && (
+          <SaveAsNoteButton
+            notebookId={notebookId}
+            messageId={message.id}
+            saveAsNote={saveAsNote}
+          />
         )}
         {message.status === 'stopped' && (
           <p className="mt-1.5 font-ui text-[11.5px] text-faint">{strings.chat.stopped}</p>

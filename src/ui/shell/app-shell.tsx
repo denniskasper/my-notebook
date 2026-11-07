@@ -8,14 +8,14 @@ import { Button } from '@/ui/components/button';
 import { cn } from '@/ui/cn';
 import { strings } from '@/ui/strings';
 
-import { Drawer } from './drawer';
+import { Drawer, type DrawerFocus } from './drawer';
 
 type Props = {
   sidebar: ReactNode;
   header: ReactNode;
   children: ReactNode;
   /** The Source / Studio / Notes drawer (only inside a Notebook). */
-  drawer?: { reader: ReactNode; sourceCount: number; readerKey: string | null };
+  drawer?: { reader: ReactNode; notes: ReactNode; sourceCount: number; focus: DrawerFocus };
 };
 
 /**
@@ -29,13 +29,13 @@ export function AppShell({ sidebar, header, children, drawer }: Props) {
   const [sidebarOpenOn, setSidebarOpenOn] = useState<string | null>(null);
   const sidebarOpen = sidebarOpenOn === pathname;
   // null = layout default (open on wide screens, closed on narrow ones). Opening a Source
-  // opens the drawer too (and closes the mobile sidebar it was opened from).
-  const readerKey = drawer?.readerKey ?? null;
-  const [drawerOpen, setDrawerOpen] = useState<boolean | null>(readerKey ? true : null);
-  const [shownReaderKey, setShownReaderKey] = useState(readerKey);
-  if (readerKey !== shownReaderKey) {
-    setShownReaderKey(readerKey);
-    if (readerKey) {
+  // or a Note opens the drawer too (and closes the mobile sidebar it was opened from).
+  const focusKey = drawer?.focus?.key ?? null;
+  const [drawerOpen, setDrawerOpen] = useState<boolean | null>(focusKey ? true : null);
+  const [shownFocusKey, setShownFocusKey] = useState(focusKey);
+  if (focusKey !== shownFocusKey) {
+    setShownFocusKey(focusKey);
+    if (focusKey) {
       setDrawerOpen(true);
       setSidebarOpenOn(null);
     }
@@ -102,8 +102,9 @@ export function AppShell({ sidebar, header, children, drawer }: Props) {
         >
           <Drawer
             reader={drawer.reader}
+            notes={drawer.notes}
             sourceCount={drawer.sourceCount}
-            readerKey={drawer.readerKey}
+            focus={drawer.focus}
             closeButton={
               <Button
                 variant="ghost"

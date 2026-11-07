@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 import { listMessages, QUESTION_MAX_LENGTH, type ChatMessage } from '@/modules/chat';
 import { getNotebook, NOTEBOOK_TITLE_MAX_LENGTH } from '@/modules/notebooks';
+import { listNotes, NOTE_BODY_MAX_LENGTH, NOTE_TITLE_MAX_LENGTH, type Note } from '@/modules/notes';
 import {
   getSourceWithPassages,
   listSources,
@@ -13,7 +14,8 @@ import {
 } from '@/modules/sources';
 import { env } from '@/platform/env';
 import { ChatPanel, type MessageView, type OpenCitation } from '@/ui/chat';
-import { AppShell, EmptyConversation, NotebookHeader, Sidebar } from '@/ui/shell';
+import { NotesPanel, type NoteView } from '@/ui/notes';
+import { AppShell, EmptyConversation, NotebookHeader, Sidebar, type DrawerFocus } from '@/ui/shell';
 import {
   AddTextSourceDialog,
   SourceList,
@@ -27,15 +29,19 @@ import { format, strings, toErrorCode } from '@/ui/strings';
 import {
   addTextSourceAction,
   clearChatAction,
+  createNoteAction,
   createNotebookAction,
+  deleteNoteAction,
   deleteNotebookAction,
   deleteSourceAction,
   renameNotebookAction,
   retrySourceAction,
+  saveAnswerAsNoteAction,
   setSourceEnabledAction,
+  updateNoteAction,
 } from '../../actions';
 import { loadSidebar } from '../../sidebar-data';
-import { parseReaderParams } from './reader-params';
+import { parseNoteParam, parseReaderParams } from './reader-params';
 
 type Props = {
   params: Promise<{ notebookId: string }>;
@@ -70,6 +76,17 @@ function toMessageView(message: ChatMessage): MessageView {
     status: message.status,
     errorCode: message.errorCode === null ? null : toErrorCode(message.errorCode),
     parts: message.parts.map(({ text, citations }) => ({ text, citations })),
+    stored: true,
+  };
+}
+
+function toNoteView(note: Note): NoteView {
+  return {
+    id: note.id,
+    title: note.title,
+    body: note.body,
+    citations: note.citations,
+    updatedAt: note.updatedAt,
   };
 }
 
@@ -80,10 +97,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function NotebookPage({ params, searchParams }: Props) {
   const { visitorId, notebook, notebooks } = await loadNotebook(params);
-  const readerParams = parseReaderParams(await searchParams);
-  const [sources, messages, opened] = await Promise.all([
+  const query = await searchParams;
+  const readerParams = parseReaderParams(query);
+  const openNoteId = parseNoteParam(query);
+  const [sources, messages, notes, opened] = await Promise.all([
     listSources(visitorId, notebook.id),
     listMessages(visitorId, notebook.id),
+    listNotes(visitorId, notebook.id),
     readerParams.sourceId
       ? getSourceWithPassages(visitorId, notebook.id, readerParams.sourceId)
       : Promise.resolve(null),
@@ -100,6 +120,17 @@ export default async function NotebookPage({ params, searchParams }: Props) {
   const openCitation: OpenCitation = readerParams.sourceId
     ? { sourceId: readerParams.sourceId, ordinals: readerParams.ordinals }
     : null;
+  const sourceIds = sources.map((source) => source.id);
+  // A Citation opened from a Note keeps `?note=`: the reader comes to the front, the Note stays open.
+  let drawerFocus: DrawerFocus = null;
+  if (readerParams.sourceId) {
+    drawerFocus = {
+      key: `${readerParams.sourceId}:${readerParams.ordinals.join(',')}`,
+      tab: 'sources',
+    };
+  } else if (openNoteId) {
+    drawerFocus = { key: `note:${openNoteId}`, tab: 'notes' };
+  }
   const chatSourceSummary =
     sources.length === 0
       ? strings.notebook.noSources
@@ -124,9 +155,23 @@ export default async function NotebookPage({ params, searchParams }: Props) {
     <AppShell
       drawer={{
         reader,
+        notes: (
+          <NotesPanel
+            notebookId={notebook.id}
+            notes={notes.map(toNoteView)}
+            openNoteId={openNoteId}
+            existingSourceIds={sourceIds}
+            openCitation={openCitation}
+            limits={{ titleMax: NOTE_TITLE_MAX_LENGTH, bodyMax: NOTE_BODY_MAX_LENGTH }}
+            actions={{
+              create: createNoteAction,
+              update: updateNoteAction,
+              remove: deleteNoteAction,
+            }}
+          />
+        ),
         sourceCount: sources.length,
-        readerKey:
-          readerParams.sourceId && `${readerParams.sourceId}:${readerParams.ordinals.join(',')}`,
+        focus: drawerFocus,
       }}
       sidebar={
         <Sidebar
@@ -182,12 +227,13 @@ export default async function NotebookPage({ params, searchParams }: Props) {
         <ChatPanel
           notebookId={notebook.id}
           messages={messages.map(toMessageView)}
-          existingSourceIds={sources.map((source) => source.id)}
+          existingSourceIds={sourceIds}
           openCitation={openCitation}
           canSubmitQuestion={active > 0}
           sourceSummary={chatSourceSummary}
           questionMaxLength={QUESTION_MAX_LENGTH}
           clearChat={clearChatAction}
+          saveAsNote={saveAnswerAsNoteAction}
         />
       )}
     </AppShell>

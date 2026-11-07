@@ -1,4 +1,4 @@
-import { and, asc, eq, lt } from 'drizzle-orm';
+import { and, asc, desc, eq, lt, ne } from 'drizzle-orm';
 
 import { getNotebook } from '@/modules/notebooks';
 import { db } from '@/platform/db';
@@ -40,6 +40,54 @@ export async function listMessages(visitorId: string, notebookId: string): Promi
     .where(eq(messages.notebookId, notebookId))
     .orderBy(asc(messages.id));
   return rows.map(toChatMessage);
+}
+
+/** A finished answer and the question it answers (null if that is gone). */
+export type Answer = { question: string | null; parts: MessagePart[] };
+
+/**
+ * The answer `messageId` with its question; null for a question, an answer
+ * still streaming, or a message outside the Visitor's Notebook.
+ */
+export async function getAnswer(
+  visitorId: string,
+  notebookId: string,
+  messageId: string,
+): Promise<Answer | null> {
+  if (!(await getNotebook(visitorId, notebookId))) return null;
+  const [row] = await db()
+    .select()
+    .from(messages)
+    .where(
+      and(
+        eq(messages.notebookId, notebookId),
+        eq(messages.id, messageId),
+        eq(messages.role, 'assistant'),
+        ne(messages.status, 'streaming'),
+      ),
+    );
+  if (!row) return null;
+  // The question is the user message just before the answer (ids are uuidv7, so ordered).
+  const [question] = await db()
+    .select()
+    .from(messages)
+    .where(
+      and(
+        eq(messages.notebookId, notebookId),
+        eq(messages.role, 'user'),
+        lt(messages.id, messageId),
+      ),
+    )
+    .orderBy(desc(messages.id))
+    .limit(1);
+  return {
+    question: question
+      ? toChatMessage(question)
+          .parts.map((part) => part.text)
+          .join('')
+      : null,
+    parts: toChatMessage(row).parts,
+  };
 }
 
 /** Deletes the Notebook's conversation; false if the Visitor has no such Notebook. */

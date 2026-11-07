@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseReaderParams } from './reader-params';
+import { parseNoteParam, parseReaderParams } from './reader-params';
 
 const id = '0190a6e0-0000-7000-8000-000000000001';
 
@@ -26,5 +26,13 @@ describe('parseReaderParams', () => {
       sourceId: id,
       ordinals: [0],
     });
+  });
+});
+
+describe('parseNoteParam', () => {
+  it('reads the open Note, and nothing without a valid id', () => {
+    expect(parseNoteParam({ note: id, source: 'x' })).toBe(id);
+    expect(parseNoteParam({ note: 'nope' })).toBeNull();
+    expect(parseNoteParam({})).toBeNull();
   });
 });
