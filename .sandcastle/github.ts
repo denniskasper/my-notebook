@@ -51,17 +51,44 @@ export const listReadyIssues = (): OpenIssue[] =>
       ),
     }));
 
+const mergeableSchema = z.object({
+  mergeable: z.enum(["MERGEABLE", "CONFLICTING", "UNKNOWN"]),
+});
+
+const sleepSync = (ms: number) =>
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+
+/**
+ * GitHub computes mergeability lazily: a PR whose base just moved reports
+ * UNKNOWN until something asks for it. Asking per PR starts that computation,
+ * so poll until it settles; selection would otherwise treat a conflicting PR
+ * as waiting for a merge and never rebase it.
+ */
+const settleMergeable = (pr: OpenPullRequest): OpenPullRequest => {
+  let current = pr;
+  for (let attempt = 0; current.mergeable === "UNKNOWN" && attempt < 10; attempt++) {
+    sleepSync(3000);
+    const { mergeable } = mergeableSchema.parse(
+      JSON.parse(gh("pr", "view", String(pr.number), "--json", "mergeable")),
+    );
+    current = { ...current, mergeable };
+  }
+  return current;
+};
+
 export const listOpenPullRequests = (): OpenPullRequest[] =>
-  pullRequestListSchema.parse(
-    JSON.parse(
-      gh(
-        "pr", "list",
-        "--state", "open",
-        "--limit", "100",
-        "--json", "number,headRefName,mergeable",
+  pullRequestListSchema
+    .parse(
+      JSON.parse(
+        gh(
+          "pr", "list",
+          "--state", "open",
+          "--limit", "100",
+          "--json", "number,headRefName,mergeable",
+        ),
       ),
-    ),
-  );
+    )
+    .map(settleMergeable);
 
 export const fetchOrigin = () => {
   git("fetch", "--prune", "origin");
