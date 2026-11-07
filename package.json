@@ -25,7 +25,8 @@
     "sandcastle": "tsx .sandcastle/main.ts",
     "sandcastle:image": "docker build -t sandcastle:my-notebook --build-arg AGENT_UID=$(id -u) --build-arg AGENT_GID=$(id -g) .sandcastle",
     "test:sandcastle": "tsx --test .sandcastle/*.test.ts",
-    "typecheck:sandcastle": "tsc -p .sandcastle"
+    "typecheck:sandcastle": "tsc -p .sandcastle",
+    "demo:seed": "tsx src/demo/seed-cli.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.5.0",
