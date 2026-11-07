@@ -75,10 +75,7 @@ export function ChatPanel({
   const streaming = pending?.status === 'streaming';
   const composerOpen = canSubmitQuestion && blocked === null;
   // The Demo budget has its app-wide banner; only the Visitor's own allowance is told here.
-  const allowanceMessage =
-    blocked?.code === 'daily_allowance'
-      ? errorMessage(blocked.code, blocked.retryAt ? retryValues(blocked.retryAt, new Date()) : {})
-      : null;
+  const allowanceMessage = blocked?.code === 'daily_allowance' ? allowanceText(blocked) : null;
 
   // The stored answer replaces the pending one once it is no longer streaming.
   const stored = pending?.assistantMessageId
@@ -275,6 +272,11 @@ export function ChatPanel({
 }
 
 /** Folds one streamed event into the pending answer. */
+function allowanceText(blocked: ComposerBlock): string {
+  const values = blocked.retryAt ? retryValues(blocked.retryAt, new Date()) : {};
+  return errorMessage(blocked.code, values);
+}
+
 function apply(pending: Pending, event: ChatEvent): Pending {
   switch (event.type) {
     case 'started':

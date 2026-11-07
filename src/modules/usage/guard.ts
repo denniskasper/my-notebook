@@ -2,10 +2,9 @@ import { and, eq, gt, sql } from 'drizzle-orm';
 
 import { db, withConnection } from '@/platform/db';
 import { env } from '@/platform/env';
+import { berlinDayStart, nextBerlinDayStart } from '@/platform/time';
 
 import {
-  berlinDayStart,
-  nextBerlinDayStart,
   RATE_WINDOW_MS,
   rateLimitRetryAt,
   spendBlock,
@@ -18,9 +17,11 @@ import { usageEvents } from './schema';
 /** The LLM features the Budget guard checks; token counting while ingesting is free. */
 export type GuardedFeature = 'chat' | 'agent' | 'studio';
 
-/** Why a call may not run now, and when it may again (null: not on its own). */
-export type UsageBlock =
-  { reason: SpendBlock; retryAt: Date | null } | { reason: 'rate_limited'; retryAt: Date };
+/** A spend cap that stops calls, and when it lifts (null: not on its own). */
+type SpendBlockAt = { reason: SpendBlock; retryAt: Date | null };
+
+/** Why a call may not run now, and when it may again. */
+export type UsageBlock = SpendBlockAt | { reason: 'rate_limited'; retryAt: Date };
 
 const MICRO_USD_PER_USD = 1_000_000;
 const toMicroUsd = (usd: number) => Math.round(usd * MICRO_USD_PER_USD);
@@ -45,6 +46,11 @@ function rateLimit(feature: GuardedFeature): number {
 }
 
 /** Today's (Berlin) and all-time spend, and one Visitor's spend today, in one query. */
+/** The daily caps lift at the next Berlin midnight; the total cap never does. */
+function spendBlockAt(block: SpendBlock, now: Date): SpendBlockAt {
+  return { reason: block, retryAt: block === 'demo_budget_total' ? null : nextBerlinDayStart(now) };
+}
+
 async function loadSpend(visitorId: string | null, now: Date): Promise<Spend> {
   const today = berlinDayStart(now);
   const visitorToday =
@@ -77,12 +83,7 @@ export async function checkUsage(input: {
 }): Promise<UsageBlock | null> {
   const now = new Date();
   const block = spendBlock(await loadSpend(input.visitorId, now), spendLimits());
-  if (block) {
-    return {
-      reason: block,
-      retryAt: block === 'demo_budget_total' ? null : nextBerlinDayStart(now),
-    };
-  }
+  if (block) return spendBlockAt(block, now);
 
   const recent = await db()
     .select({ at: usageEvents.at })
@@ -103,7 +104,7 @@ export async function checkUsage(input: {
 
 export type SpendStatus = {
   /** What stops this Visitor's next call by spend alone, if anything (rate limits aside). */
-  blocked: { reason: SpendBlock; retryAt: Date | null } | null;
+  blocked: SpendBlockAt | null;
   /** The Visitor's Daily allowance (nothing spent without a Visitor). */
   allowance: { spentMicroUsd: number; limitMicroUsd: number; resetsAt: Date };
   demoBudget: {
@@ -127,10 +128,7 @@ export async function getSpendStatus(visitorId: string | null): Promise<SpendSta
     daily_allowance: null,
   };
   return {
-    blocked: block && {
-      reason: block,
-      retryAt: block === 'demo_budget_total' ? null : nextBerlinDayStart(now),
-    },
+    blocked: block && spendBlockAt(block, now),
     allowance: {
       spentMicroUsd: spend.visitorToday,
       limitMicroUsd: limits.allowanceMicroUsd,

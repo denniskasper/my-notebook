@@ -2,7 +2,8 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { createNotebook } from '@/modules/notebooks';
 import { addTextSource, deleteSource, processSource, setSourceEnabled } from '@/modules/sources';
-import { nextBerlinDayStart, recordUsage, spendSince } from '@/modules/usage';
+import { recordUsage, spendSince } from '@/modules/usage';
+import { nextBerlinDayStart } from '@/platform/time';
 import { createVisitor } from '@/modules/visitors';
 import { closeDb } from '@/platform/db';
 import { MODELS } from '@/platform/llm';

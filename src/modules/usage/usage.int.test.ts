@@ -4,16 +4,10 @@ import { createNotebook, deleteNotebook } from '@/modules/notebooks';
 import { createVisitor } from '@/modules/visitors';
 import { closeDb } from '@/platform/db';
 import { MODELS } from '@/platform/llm';
+import { nextBerlinDayStart } from '@/platform/time';
 import { resetDatabase } from '@/test/database';
 
-import {
-  checkUsage,
-  getSpendStatus,
-  nextBerlinDayStart,
-  recordUsage,
-  spendSince,
-  withAgentSlot,
-} from '.';
+import { checkUsage, getSpendStatus, recordUsage, spendSince, withAgentSlot } from '.';
 
 let visitor: string;
 let notebook: string;
