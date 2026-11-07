@@ -68,7 +68,9 @@ export function SourceReader({ source, passages, highlight, closeHref, limits }:
           {passages.map((passage, index) => {
             const isHighlighted = highlighted.has(passage.ordinal);
             const pageStart =
-              passage.page !== null && passage.page !== passages[index - 1]?.page ? passage.page : null;
+              passage.page !== null && passage.page !== passages[index - 1]?.page
+                ? passage.page
+                : null;
             return (
               <li
                 key={`${passage.ordinal}-${isHighlighted}`}
