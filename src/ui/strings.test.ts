@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  briefingFailureMessage,
   errorMessage,
   format,
   formatNumber,
@@ -61,6 +62,18 @@ describe('errorMessage', () => {
     expect(errorMessage('invalid_title', { max: 120 })).toBe(
       'Der Titel muss zwischen 1 und 120 Zeichen lang sein.',
     );
+  });
+});
+
+describe('briefingFailureMessage', () => {
+  it('uses Studio wording for generic failures', () => {
+    expect(briefingFailureMessage(null)).toBe(strings.studio.failed);
+    expect(briefingFailureMessage('llm_failed')).toBe(strings.studio.failed);
+    expect(briefingFailureMessage('unknown')).toBe(strings.studio.failed);
+  });
+
+  it('keeps the specific text for other codes', () => {
+    expect(briefingFailureMessage('interrupted')).toBe('Die Verarbeitung wurde unterbrochen.');
   });
 });
 

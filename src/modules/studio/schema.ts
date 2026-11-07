@@ -7,7 +7,7 @@ import { notebooks } from '@/modules/notebooks/schema';
 export const STUDIO_OUTPUT_KINDS = ['briefing'] as const;
 export const STUDIO_OUTPUT_STATUSES = ['processing', 'complete', 'failed'] as const;
 
-/** Studio outputs of a Notebook: one row per generation, newest last by id (uuidv7). */
+/** Studio outputs of a Notebook: one row per Briefing started, newest last by id (uuidv7). */
 export const studioOutputs = pgTable(
   'studio_outputs',
   {

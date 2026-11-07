@@ -134,6 +134,7 @@ describe('Briefings and the Budget guard', () => {
     await recordUsage({
       ...call,
       visitorId: visitor,
+      // Chat spend counts against the same allowance; priced at the Studio model to use it up.
       feature: 'chat',
       model: MODELS.studio,
       inputTokens: 1_000,

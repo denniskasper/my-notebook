@@ -1,6 +1,11 @@
 import { and, eq, gt, sql } from 'drizzle-orm';
 
-import { toCitation, type PromptDocument, type TextPart } from '@/modules/chat';
+import {
+  messagePartsSchema,
+  toCitation,
+  type PromptDocument,
+  type TextPart,
+} from '@/modules/chat';
 import { getNotebook } from '@/modules/notebooks';
 import { listPromptSources } from '@/modules/sources';
 import { checkUsage, estimateOutputTokens, recordUsage, type UsageBlock } from '@/modules/usage';
@@ -98,16 +103,19 @@ export async function runBriefing(visitorId: string, outputId: string): Promise<
   }
 }
 
+/** Why a started Briefing failed; the sweep adds `interrupted`. */
+type BriefingFailureCode = 'llm_failed' | 'no_active_sources';
+
 type Result = {
   status: 'complete' | 'failed';
-  errorCode: string | null;
+  errorCode: BriefingFailureCode | null;
   parts: TextPart[];
   streamedChars: number;
   startUsage: LlmUsage | null;
   finalUsage: LlmUsage | null;
 };
 
-const failed = (errorCode: string): Result => ({
+const failed = (errorCode: BriefingFailureCode): Result => ({
   status: 'failed',
   errorCode,
   parts: [],
@@ -119,7 +127,14 @@ const failed = (errorCode: string): Result => ({
 const emptyTextPart = (): TextPart => ({ type: 'text', text: '', citations: [] });
 
 async function streamBriefing(request: ChatRequest, documents: PromptDocument[]): Promise<Result> {
-  const result: Result = { ...failed('llm_failed'), status: 'complete', errorCode: null };
+  const result: Result = {
+    status: 'complete',
+    errorCode: null,
+    parts: [],
+    streamedChars: 0,
+    startUsage: null,
+    finalUsage: null,
+  };
   // Text or a Citation before any block opened still needs a part to land in.
   const current = (): TextPart => {
     let part = result.parts.at(-1);
@@ -169,7 +184,10 @@ async function streamBriefing(request: ChatRequest, documents: PromptDocument[])
 
 /** Stores the outcome, unless the output left `processing` (the sweep's `interrupted` stands) or is gone. */
 async function finish(outputId: string, result: Result): Promise<void> {
-  const content = result.parts.filter((part) => part.text !== '' || part.citations.length > 0);
+  // Validated on write as well as on read: a bad shape fails loudly here, not silently later.
+  const content = messagePartsSchema.parse(
+    result.parts.filter((part) => part.text !== '' || part.citations.length > 0),
+  );
   const [row] = await db()
     .update(studioOutputs)
     .set({

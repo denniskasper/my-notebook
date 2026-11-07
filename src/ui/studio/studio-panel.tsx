@@ -6,7 +6,7 @@ import { useActionState, useEffect } from 'react';
 
 import type { ComposerBlock, OpenCitation } from '@/ui/chat';
 import { SubmitButton } from '@/ui/components/submit-button';
-import { errorMessage, format, retryValues, strings } from '@/ui/strings';
+import { briefingFailureMessage, errorMessage, format, retryValues, strings } from '@/ui/strings';
 
 import { BriefingBody } from './briefing-body';
 import type { BriefingView, GenerateBriefing, StudioActionResult } from './types';
@@ -134,12 +134,9 @@ function StatusLabel({ briefing }: { briefing: BriefingView }) {
 
 function BriefingContent({ briefing, ...context }: Omit<BriefingProps, 'defaultOpen'>) {
   if (briefing.status === 'failed') {
-    const code = briefing.errorCode;
     return (
       <p role="alert" className="text-[12px] text-danger">
-        {code === null || code === 'llm_failed' || code === 'unknown'
-          ? strings.studio.failed
-          : errorMessage(code)}
+        {briefingFailureMessage(briefing.errorCode)}
       </p>
     );
   }

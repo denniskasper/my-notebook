@@ -39,7 +39,7 @@ export function createRealLlm(apiKey: string): Llm {
  */
 export function toMessageParams(
   request: ChatRequest,
-  profile: CallProfile = CHAT,
+  profile: CallProfile,
 ): Anthropic.MessageCreateParamsStreaming {
   const documents: Anthropic.DocumentBlockParam[] = request.documents.map((document, index) => ({
     type: 'document',

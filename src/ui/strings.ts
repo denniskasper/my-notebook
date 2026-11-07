@@ -273,6 +273,15 @@ function isErrorCode(code: string): code is ErrorCode {
   return Object.hasOwn(strings.errors.codes, code);
 }
 
+/**
+ * The text for a failed Briefing: generic failures get Studio wording, since the
+ * shared `llm_failed` text speaks of a Chat question.
+ */
+export function briefingFailureMessage(code: ErrorCode | null): string {
+  if (code === null || code === 'llm_failed' || code === 'unknown') return strings.studio.failed;
+  return errorMessage(code);
+}
+
 /** The text for a server error code, with `{placeholders}` filled from `values`. */
 export function errorMessage(
   code: ErrorCode,
