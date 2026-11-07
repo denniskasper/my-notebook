@@ -1,4 +1,4 @@
-export type BuildInfo = { version: string; commit: string };
+import type { BuildInfo } from '@/platform/build';
 
 const REPOSITORY_URL = 'https://github.com/denniskasper/my-notebook';
 // `COMMIT` is `unknown` locally; anything that isn't a commit id must not end up in a link.

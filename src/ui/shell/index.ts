@@ -4,4 +4,3 @@ export { Sidebar, type SidebarNotebook } from './sidebar';
 export { Welcome } from './welcome';
 export { AppShell } from './app-shell';
 export type { DrawerFocus } from './drawer';
-export type { BuildInfo } from './version';

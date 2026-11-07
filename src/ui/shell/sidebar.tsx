@@ -2,11 +2,11 @@ import { BookOpen, ChevronDown, Plus } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
+import type { BuildInfo } from '@/platform/build';
 import { SubmitButton } from '@/ui/components/submit-button';
 import { cn } from '@/ui/cn';
 import { strings } from '@/ui/strings';
 
-import type { BuildInfo } from './version';
 import { VersionLabel } from './version-label';
 
 export type SidebarNotebook = { id: string; title: string };

@@ -1,6 +1,7 @@
+import type { BuildInfo } from '@/platform/build';
 import { strings } from '@/ui/strings';
 
-import { versionLabel, type BuildInfo } from './version';
+import { versionLabel } from './version';
 
 /** The running build at the foot of the sidebar, so anyone can tell which release is live. */
 export function VersionLabel({ build }: { build: BuildInfo }) {

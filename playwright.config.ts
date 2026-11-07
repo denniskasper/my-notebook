@@ -3,7 +3,6 @@ import { defineConfig, devices } from '@playwright/test';
 import { E2E_COMMIT } from './e2e/build';
 
 const PORT = 3100;
-
 const databaseUrl = process.env.TEST_DATABASE_URL;
 if (!databaseUrl) throw new Error('TEST_DATABASE_URL must be set for e2e tests');
 
