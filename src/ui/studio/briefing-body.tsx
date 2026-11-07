@@ -1,7 +1,12 @@
 import { Tooltip } from 'radix-ui';
-import { Fragment } from 'react';
 
-import { CitationChip, isOpenCitation, type OpenCitation } from '@/ui/chat';
+import {
+  CitationChip,
+  citationRuns,
+  isOpenCitation,
+  TextWithChips,
+  type OpenCitation,
+} from '@/ui/chat';
 import { cn } from '@/ui/cn';
 
 import { briefingBlocks, type Inline } from './blocks';
@@ -62,18 +67,23 @@ function InlineView({
   existingSourceIds,
   openCitation,
 }: { inline: Inline[] } & Context) {
-  return inline.map((token, index) => {
-    if (token.type === 'text') return <Fragment key={index}>{token.text}</Fragment>;
-    const { citation } = token;
-    return (
-      <CitationChip
-        key={index}
-        n={token.n}
-        citation={citation}
-        notebookId={notebookId}
-        sourceExists={existingSourceIds.has(citation.sourceId)}
-        open={isOpenCitation(openCitation, citation.sourceId, citation.ordinals)}
-      />
-    );
-  });
+  const renderChip = (token: Extract<Inline, { type: 'citation' }>) => (
+    <CitationChip
+      key={token.n}
+      n={token.n}
+      citation={token.citation}
+      notebookId={notebookId}
+      sourceExists={existingSourceIds.has(token.citation.sourceId)}
+      open={isOpenCitation(openCitation, token.citation.sourceId, token.citation.ordinals)}
+    />
+  );
+  return citationRuns(inline).map(({ token, citations, index }) =>
+    token.type === 'citation' ? (
+      renderChip(token)
+    ) : (
+      <TextWithChips key={`t${index}`} text={token.text}>
+        {citations.map(renderChip)}
+      </TextWithChips>
+    ),
+  );
 }

@@ -1,7 +1,13 @@
 import { Tooltip } from 'radix-ui';
 import { Fragment } from 'react';
 
-import { CitationChip, isOpenCitation, type OpenCitation } from '@/ui/chat';
+import {
+  CitationChip,
+  citationRuns,
+  isOpenCitation,
+  TextWithChips,
+  type OpenCitation,
+} from '@/ui/chat';
 import { cn } from '@/ui/cn';
 
 import { parseNoteMarkdown, type Block, type Inline } from './markdown';
@@ -71,43 +77,57 @@ function BlockView({ block, ...context }: { block: Block } & Props) {
 
 function InlineView({ inline, ...context }: { inline: Inline[] } & Props) {
   const { note, notebookId, existingSourceIds, openCitation } = context;
-  return inline.map((token, index) => {
+  const renderChip = (token: Extract<Inline, { type: 'citation' }>, key: number) => {
+    const citation = note.citations[token.marker];
+    if (!citation) return null;
+    return (
+      <CitationChip
+        key={key}
+        n={Number(token.marker)}
+        citation={citation}
+        notebookId={notebookId}
+        sourceExists={existingSourceIds.has(citation.sourceId)}
+        open={isOpenCitation(openCitation, citation.sourceId, citation.ordinals)}
+        preserveQuery={{ note: note.id }}
+      />
+    );
+  };
+  return citationRuns(inline).map(({ token, citations, index }) => {
+    const chips = citations.map(renderChip);
     switch (token.type) {
       case 'text':
-        return <Fragment key={index}>{token.text}</Fragment>;
+        return (
+          <TextWithChips key={index} text={token.text}>
+            {chips}
+          </TextWithChips>
+        );
       case 'strong':
         return (
-          <strong key={index} className="font-semibold text-text">
-            <InlineView inline={token.inline} {...context} />
-          </strong>
+          <Fragment key={index}>
+            <strong className="font-semibold text-text">
+              <InlineView inline={token.inline} {...context} />
+            </strong>
+            {chips}
+          </Fragment>
         );
       case 'em':
         return (
-          <em key={index}>
-            <InlineView inline={token.inline} {...context} />
-          </em>
+          <Fragment key={index}>
+            <em>
+              <InlineView inline={token.inline} {...context} />
+            </em>
+            {chips}
+          </Fragment>
         );
       case 'code':
         return (
-          <code key={index} className="rounded-[3px] bg-raise px-1 font-ui text-[12.5px]">
-            {token.text}
-          </code>
+          <Fragment key={index}>
+            <code className="rounded-[3px] bg-raise px-1 font-ui text-[12.5px]">{token.text}</code>
+            {chips}
+          </Fragment>
         );
-      case 'citation': {
-        const citation = note.citations[token.marker];
-        if (!citation) return null;
-        return (
-          <CitationChip
-            key={index}
-            n={Number(token.marker)}
-            citation={citation}
-            notebookId={notebookId}
-            sourceExists={existingSourceIds.has(citation.sourceId)}
-            open={isOpenCitation(openCitation, citation.sourceId, citation.ordinals)}
-            preserveQuery={{ note: note.id }}
-          />
-        );
-      }
+      case 'citation':
+        return renderChip(token, index);
     }
   });
 }

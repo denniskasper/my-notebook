@@ -4,7 +4,7 @@ import { Tooltip } from 'radix-ui';
 import { cn } from '@/ui/cn';
 import { errorMessage, strings } from '@/ui/strings';
 
-import { CitationChip, isOpenCitation } from './citation-chip';
+import { CitationChip, isOpenCitation, TextWithChips } from './citation-chip';
 import type { StepView } from './events';
 import { SaveAsNoteButton, type SaveAsNote } from './save-as-note';
 import { splitLinks } from './links';
@@ -97,29 +97,36 @@ function Answer({
           <StepTimeline steps={steps} live={streaming} costMicroUsd={message.costMicroUsd} />
         )}
         {showWriting && (
-          <p role="status" className="font-ui text-[12px] text-faint">
-            {strings.chat.writing}
-            <Caret />
+          // Keeps the answer's line height, so the text replaces it without a jump.
+          <p role="status" className="font-ui text-faint">
+            <span className="text-[12px]">
+              {strings.chat.writing}
+              <Caret />
+            </span>
           </p>
         )}
         {!empty && (
           <p className="whitespace-pre-wrap">
             {texts.map((part, index) => (
               <span key={index}>
-                {agent ? <TextWithLinks text={part.text} /> : part.text}
-                {part.citations.map((citation, citationIndex) => {
-                  const n = (firstNumber[index] ?? 1) + citationIndex;
-                  return (
-                    <CitationChip
-                      key={n}
-                      n={n}
-                      citation={citation}
-                      notebookId={notebookId}
-                      sourceExists={existingSourceIds.has(citation.sourceId)}
-                      open={isOpenCitation(openCitation, citation.sourceId, citation.ordinals)}
-                    />
-                  );
-                })}
+                <TextWithChips
+                  text={part.text}
+                  renderText={(text) => (agent ? <TextWithLinks text={text} /> : text)}
+                >
+                  {part.citations.map((citation, citationIndex) => {
+                    const n = (firstNumber[index] ?? 1) + citationIndex;
+                    return (
+                      <CitationChip
+                        key={n}
+                        n={n}
+                        citation={citation}
+                        notebookId={notebookId}
+                        sourceExists={existingSourceIds.has(citation.sourceId)}
+                        open={isOpenCitation(openCitation, citation.sourceId, citation.ordinals)}
+                      />
+                    );
+                  })}
+                </TextWithChips>
               </span>
             ))}
             {streaming && <Caret />}

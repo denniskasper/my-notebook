@@ -1,5 +1,6 @@
 export { ChatPanel, type ComposerBlock } from './chat-panel';
-export { CitationChip, isOpenCitation } from './citation-chip';
+export { CitationChip, isOpenCitation, TextWithChips } from './citation-chip';
+export { citationRuns } from './citation-runs';
 export type { SaveAsNote } from './save-as-note';
 export {
   CHAT_ERROR_CODES,
