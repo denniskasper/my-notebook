@@ -18,7 +18,8 @@ In MVP cut order: a cut feature drops its scene and the story still holds.
 
 ### P1 Empty → first answer (~60 s)
 
-Create a Notebook, paste [`sources/meine-notizen.md`](sources/meine-notizen.md) as a text Source,
+Create a Notebook, add [`sources/meine-notizen.md`](sources/meine-notizen.md) as a text Source (its first
+line is the title; paste only the lines below it as the text, or the `#` heading becomes Passage 1),
 watch it go `processing → ready`.
 
 - Ask: *„Ab wann gelten die Pflichten für Hochrisiko-KI-Systeme?"* (`p1-hochrisiko-fristen`).

@@ -57,6 +57,9 @@
     background: var(--color-bg);
     color: var(--color-text);
     font: 400 13px/1.45 var(--font-ui);
+    /* Instrument Sans has a very narrow word space (~2px at 12px): small labels read as
+       "100%übrig" and "v0.1.0·dc3592c". A little extra spacing restores the gaps. */
+    word-spacing: 0.08em;
     -webkit-font-smoothing: antialiased;
   }
   :focus-visible {
