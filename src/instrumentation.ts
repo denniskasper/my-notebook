@@ -18,4 +18,6 @@ export async function register() {
   startStaleMessageSweep();
   const { startVisitorPurge } = await import('@/modules/visitors');
   startVisitorPurge();
+  const { startStaleStudioOutputSweep } = await import('@/modules/studio');
+  startStaleStudioOutputSweep();
 }

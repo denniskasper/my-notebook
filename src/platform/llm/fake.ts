@@ -20,7 +20,14 @@ export function createFakeLlm(options: { delayMs?: number } = {}): Llm {
       return tokensOf(text.length);
     },
     streamChat(request, { signal }) {
-      return streamScript(request, script(request), { signal, delayMs });
+      return streamScript(request, script(request), { signal, delayMs, model: MODELS.chat });
+    },
+    streamBriefing(request, { signal }) {
+      return streamScript(request, briefingScript(request), {
+        signal,
+        delayMs,
+        model: MODELS.studio,
+      });
     },
   };
 }
@@ -72,17 +79,50 @@ function script(request: ChatRequest): Segment[] {
   return segments;
 }
 
+/**
+ * A fixed German Briefing in the shape the prompt asks for: an overview citing
+ * the first document, then one cited key point per document (up to three).
+ */
+function briefingScript(request: ChatRequest): Segment[] {
+  const [first] = request.documents;
+  if (!first) return [{ text: '## Überblick\nDeine Quellen enthalten noch keinen Text.' }];
+  const segments: Segment[] = [
+    { text: '## Überblick\n' },
+    {
+      text: `Die Quellen drehen sich um „${first.title}“ und halten das Wesentliche gleich zu Beginn fest.`,
+      citation: cite(request, 0, 0),
+    },
+    { text: '\n\n## Kernpunkte' },
+  ];
+  request.documents.slice(0, MAX_CITED_DOCUMENTS).forEach((document, index) => {
+    segments.push(
+      { text: '\n- ' },
+      {
+        text: `„${document.title}“ nennt den ersten zentralen Punkt.`,
+        citation: cite(request, index, 0),
+      },
+    );
+  });
+  if (first.blocks.length > 1) {
+    segments.push(
+      { text: '\n- ' },
+      { text: 'Ein weiterer Abschnitt ergänzt die Einzelheiten.', citation: cite(request, 0, 1) },
+    );
+  }
+  return segments;
+}
+
 async function* streamScript(
   request: ChatRequest,
   segments: Segment[],
-  { signal, delayMs }: { signal: AbortSignal; delayMs: number },
+  { signal, delayMs, model }: { signal: AbortSignal; delayMs: number; model: string },
 ): AsyncGenerator<ChatStreamEvent> {
   const promptChars =
     request.system.length +
     request.documents.reduce((sum, d) => sum + d.blocks.join('').length, 0) +
     request.turns.reduce((sum, t) => sum + t.text.length, 0);
   const usage: LlmUsage = {
-    model: MODELS.chat,
+    model,
     inputTokens: tokensOf(promptChars),
     outputTokens: 0,
     cacheReadTokens: 0,

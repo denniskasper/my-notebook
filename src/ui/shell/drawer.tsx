@@ -9,6 +9,8 @@ type Props = {
   closeButton: ReactNode;
   /** The Source reader, or null when no Source is open. */
   reader: ReactNode;
+  /** The Studio tab. */
+  studio: ReactNode;
   /** The Notes tab. */
   notes: ReactNode;
   sourceCount: number;
@@ -18,8 +20,8 @@ type Props = {
 
 export type DrawerFocus = { key: string; tab: 'sources' | 'notes' } | null;
 
-/** Source reader, Studio outputs and Notes. Studio waits for its slice. */
-export function Drawer({ closeButton, reader, notes, sourceCount, focus }: Props) {
+/** Source reader, Studio outputs and Notes. */
+export function Drawer({ closeButton, reader, studio, notes, sourceCount, focus }: Props) {
   const { tabs } = strings.drawer;
   const [tab, setTab] = useState<string>(focus?.tab ?? 'sources');
   const [shownKey, setShownKey] = useState(focus?.key ?? null);
@@ -43,9 +45,7 @@ export function Drawer({ closeButton, reader, notes, sourceCount, focus }: Props
       <TabsContent value="sources">
         {reader ?? <EmptyTab>{strings.drawer.sourcesEmpty}</EmptyTab>}
       </TabsContent>
-      <TabsContent value="studio">
-        <EmptyTab>{strings.drawer.studioEmpty}</EmptyTab>
-      </TabsContent>
+      <TabsContent value="studio">{studio}</TabsContent>
       <TabsContent value="notes">{notes}</TabsContent>
     </Tabs>
   );

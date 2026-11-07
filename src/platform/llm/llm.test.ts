@@ -80,3 +80,29 @@ describe('fake llm streamChat', () => {
     expect(seen.some((e) => e.type === 'finished')).toBe(false);
   });
 });
+
+describe('fake llm streamBriefing', () => {
+  it('streams a structured Briefing on the Studio model whose Citations point at document blocks', async () => {
+    const llm = createFakeLlm({ delayMs: 0 });
+    const events = await collect(
+      llm.streamBriefing(request, { signal: new AbortController().signal }),
+    );
+
+    expect(events[0]).toMatchObject({ type: 'started', usage: { model: 'claude-sonnet-5-5' } });
+    expect(events.at(-1)).toMatchObject({
+      type: 'finished',
+      stopReason: 'end_turn',
+      usage: { model: 'claude-sonnet-5-5' },
+    });
+    const text = events.flatMap((e) => (e.type === 'text' ? [e.text] : [])).join('');
+    expect(text).toMatch(/^## Überblick\n/);
+    expect(text).toContain('\n## Kernpunkte\n- ');
+    const citations = events.flatMap((e) => (e.type === 'citation' ? [e.citation] : []));
+    expect(citations).toContainEqual({
+      documentIndex: 1,
+      startBlockIndex: 0,
+      endBlockIndex: 1,
+      citedText: 'Zuschuss bis 70 Prozent.',
+    });
+  });
+});

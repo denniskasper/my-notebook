@@ -112,6 +112,17 @@ export const strings = {
     emptyBody: 'Diese Notiz ist leer.',
     citationCount: { one: '{count} Zitat', other: '{count} Zitate' },
   },
+  studio: {
+    label: 'Studio',
+    generate: 'Briefing erstellen',
+    intro:
+      'Ein Briefing fasst deine aktiven Quellen zusammen: ein kurzer Überblick und die Kernpunkte, jeweils mit Zitaten.',
+    noActiveSources: 'Schalte eine Quelle ein, um ein Briefing zu erstellen.',
+    briefing: 'Briefing vom {date}',
+    generating: 'Briefing wird erstellt …',
+    failed: 'Das Briefing ließ sich nicht erstellen. Versuch es bitte noch einmal.',
+    empty: 'Dieses Briefing ist leer.',
+  },
   sources: {
     kinds: { text: 'Text einfügen', pdf: 'PDF hochladen', url: 'Webseite' },
     addText: {
@@ -159,7 +170,6 @@ export const strings = {
     tabs: { sources: 'Quellen', studio: 'Studio', notes: 'Notizen' },
     sourcesEmpty:
       'Keine Quelle geöffnet. Klicke auf ein Zitat in einer Antwort oder auf eine Quelle in der Seitenleiste.',
-    studioEmpty: 'Sobald Quellen da sind, kannst du hier ein Briefing erstellen.',
     notesEmpty: 'Noch keine Notizen. Speichere eine Antwort oder schreib selbst eine.',
   },
   usage: {
@@ -221,6 +231,7 @@ export const strings = {
       demo_budget_total: 'Das Demo-Budget ist aufgebraucht.',
       rate_limited: 'Kurz durchatmen – in {minutes} Min. wieder möglich.',
       agent_busy: 'Agent ist gerade ausgelastet.',
+      studio_busy: 'Ein Briefing wird gerade erstellt. Warte, bis es fertig ist.',
       visitor_limit:
         'Von deinem Netzwerk aus wurden heute schon zu viele neue Notebooks begonnen. Morgen geht’s weiter.',
       unknown: 'Das hat nicht geklappt. Bitte versuch es noch einmal.',

@@ -39,12 +39,20 @@ export type ChatStreamEvent =
   | { type: 'citation'; citation: LlmCitation }
   | { type: 'finished'; usage: LlmUsage; stopReason: string | null };
 
-/** Everything the app asks of Claude. Later slices add Agent and Studio calls. */
+/** Everything the app asks of Claude. A later slice adds the Agent. */
 export type Llm = {
   /** Input tokens `text` takes up as a user message (the free counting endpoint). */
   countTokens(text: string): Promise<number>;
   /** Streams a Chat answer grounded in `documents`; aborting `signal` ends the stream (it throws). */
   streamChat(
+    request: ChatRequest,
+    options: { signal: AbortSignal },
+  ): AsyncIterable<ChatStreamEvent>;
+  /**
+   * Streams a Briefing (Studio model) grounded in `documents`, in the same
+   * events as a Chat answer; `turns` is the one instruction.
+   */
+  streamBriefing(
     request: ChatRequest,
     options: { signal: AbortSignal },
   ): AsyncIterable<ChatStreamEvent>;

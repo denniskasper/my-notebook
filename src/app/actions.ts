@@ -29,9 +29,11 @@ import {
   sourceTextSchema,
   sourceTitleSchema,
 } from '@/modules/sources';
+import { runBriefing, startBriefing } from '@/modules/studio';
 import { ensureVisitor, VisitorLimitError } from '@/modules/visitors';
 import { requestLogger } from '@/platform/logging';
 import type { ActionResult } from '@/ui/shell';
+import type { StudioActionResult } from '@/ui/studio';
 import { strings } from '@/ui/strings';
 
 const notebookIdSchema = z.object({ notebookId: z.uuid() });
@@ -235,4 +237,29 @@ export async function saveAnswerAsNoteAction(
   (await requestLogger()).info({ event: 'note.saved_from_answer', noteId: note.id, messageId });
   revalidatePath(`/notebooks/${notebookId}`);
   redirect(`/notebooks/${notebookId}?note=${note.id}`);
+}
+
+/** Starts a Briefing and generates it after the response; the Studio tab polls until it is done. */
+export async function generateBriefingAction(
+  _previous: StudioActionResult,
+  formData: FormData,
+): Promise<StudioActionResult> {
+  const input = notebookIdSchema.safeParse(Object.fromEntries(formData));
+  if (!input.success) return { ok: false, error: 'not_found' };
+  const { notebookId } = input.data;
+  const visitorId = await ensureVisitor();
+  const started = await startBriefing(visitorId, notebookId);
+  if (!started.ok) {
+    return {
+      ok: false,
+      error: started.error,
+      ...(started.retryAt && { retryAt: started.retryAt.toISOString() }),
+    };
+  }
+  (await requestLogger()).info({ event: 'studio.briefing_started', outputId: started.output.id });
+  after(async () => {
+    await runBriefing(visitorId, started.output.id);
+  });
+  revalidatePath(`/notebooks/${notebookId}`);
+  return { ok: true };
 }
