@@ -116,6 +116,17 @@ export const strings = {
       submit: 'Quelle hinzufügen',
       cancel: 'Abbrechen',
     },
+    addPdf: {
+      title: 'PDF hochladen',
+      description:
+        'Der Text jeder Seite wird zu Passagen, auf die Antworten verweisen können. Die Datei selbst wird nicht gespeichert.',
+      fileLabel: 'PDF-Datei',
+      drop: 'PDF hierher ziehen',
+      choose: 'oder eine Datei auswählen',
+      hint: 'Bis {max} MB. Nur PDFs mit Text: Gescannte Seiten lassen sich nicht lesen.',
+      reading: '„{name}“ wird gelesen …',
+      cancel: 'Abbrechen',
+    },
     enabledLabel: 'In Antworten verwenden',
     processing: 'Wird verarbeitet …',
     retry: 'Erneut versuchen',
@@ -126,6 +137,8 @@ export const strings = {
     label: 'Quellenleser',
     close: 'Quelle schließen',
     passageCount: { one: '{count} Passage', other: '{count} Passagen' },
+    pageCount: { one: 'auf {count} Seite', other: 'auf {count} Seiten' },
+    page: 'Seite {n}',
     tokenCount: '{count} Tokens',
     processing: 'Diese Quelle wird gerade verarbeitet.',
     disabled: 'Ausgeschaltet: Antworten berücksichtigen diese Quelle nicht.',
@@ -157,6 +170,10 @@ export const strings = {
       invalid_source_text: 'Füge einen Text mit höchstens {max} Zeichen ein.',
       token_cap_exceeded:
         'Zu viel Text: Die aktiven Quellen eines Notebooks dürfen zusammen höchstens {cap} Tokens umfassen. Schalte eine andere Quelle aus oder kürze den Text.',
+      pdf_invalid: 'Diese Datei ist kein lesbares PDF. Wähle eine PDF-Datei aus.',
+      pdf_too_large: 'Das PDF ist größer als {max} MB. Wähle eine kleinere Datei.',
+      pdf_no_text:
+        'Dieses PDF enthält keinen Text, vermutlich ist es gescannt. Gescannte PDFs werden nicht unterstützt: Lade ein PDF mit Textebene hoch oder füge den Text ein.',
       interrupted: 'Die Verarbeitung wurde unterbrochen.',
       token_count_failed: 'Die Länge des Textes ließ sich nicht bestimmen.',
       invalid_question: 'Stell eine Frage mit höchstens {max} Zeichen.',

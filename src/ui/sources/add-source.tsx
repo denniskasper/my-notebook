@@ -1,7 +1,7 @@
 'use client';
 
-import { Plus, Type } from 'lucide-react';
-import { useActionState, useState, type ComponentProps } from 'react';
+import { FileText, Plus, Type, type LucideProps } from 'lucide-react';
+import { useActionState, useState } from 'react';
 
 import { Button } from '@/ui/components/button';
 import {
@@ -10,61 +10,98 @@ import {
   DialogContent,
   DialogDescription,
   DialogTitle,
-  DialogTrigger,
 } from '@/ui/components/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/ui/components/dropdown-menu';
+import { KIND_BUTTON } from '@/ui/components/kind-button';
 import { SubmitButton } from '@/ui/components/submit-button';
 import type { ActionResult } from '@/ui/shell';
 import { errorMessage, strings } from '@/ui/strings';
 
+import { AddPdfSourceForm } from './add-pdf-source-form';
 import type { SourceLimits } from './types';
 
 type Props = {
   notebookId: string;
   limits: SourceLimits;
   addTextSource: (previous: ActionResult, formData: FormData) => Promise<ActionResult>;
-  /** Where the dialog is opened from: the sidebar under the Notebook, or the empty conversation. */
+  /** Where Sources are added from: the sidebar under the Notebook, or the empty conversation. */
   placement: 'sidebar' | 'conversation';
 };
 
-const TRIGGER_CLASS = {
-  sidebar:
-    'flex w-full items-center gap-2 rounded-[5px] px-2 py-1 text-muted hover:bg-hover hover:text-text',
-  conversation:
-    'flex h-9 items-center gap-2 rounded-md border border-line px-3 text-text transition-colors hover:border-muted hover:bg-hover',
-} as const;
+type Kind = 'text' | 'pdf';
 
-// Radix's `asChild` hands its props (onClick, aria-*, ref) to this button.
-function Trigger({
-  placement,
-  ...props
-}: { placement: Props['placement'] } & ComponentProps<'button'>) {
-  return placement === 'sidebar' ? (
-    <button type="button" className={TRIGGER_CLASS.sidebar} {...props}>
-      <Plus size={13} aria-hidden />
-      {strings.sidebar.addSource}
-    </button>
-  ) : (
-    <button type="button" className={TRIGGER_CLASS.conversation} {...props}>
-      <Type size={14} aria-hidden className="text-muted" />
-      {strings.sources.kinds.text}
-    </button>
+const KIND_ICONS = { text: Type, pdf: FileText } as const;
+
+/**
+ * Adds a Source: in the sidebar a menu of kinds, in the empty conversation one
+ * button per kind. Each kind opens its dialog.
+ */
+export function AddSource({ placement, notebookId, limits, addTextSource }: Props) {
+  const [open, setOpen] = useState<Kind | null>(null);
+  const close = () => setOpen(null);
+
+  return (
+    <>
+      {placement === 'sidebar' ? (
+        // Not modal: the menu must let go of focus and pointer events for the dialog it opens.
+        <DropdownMenu modal={false}>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className="flex w-full items-center gap-2 rounded-[5px] px-2 py-1 text-muted hover:bg-hover hover:text-text data-[state=open]:bg-hover data-[state=open]:text-text"
+            >
+              <Plus size={13} aria-hidden />
+              {strings.sidebar.addSource}
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            {KINDS.map((kind) => (
+              <DropdownMenuItem key={kind} onSelect={() => setOpen(kind)}>
+                <KindIcon kind={kind} />
+                {strings.sources.kinds[kind]}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : (
+        KINDS.map((kind) => (
+          <button key={kind} type="button" className={KIND_BUTTON} onClick={() => setOpen(kind)}>
+            <KindIcon kind={kind} size={14} className="text-muted" />
+            {strings.sources.kinds[kind]}
+          </button>
+        ))
+      )}
+
+      <Dialog open={open !== null} onOpenChange={(next) => !next && close()}>
+        <DialogContent>
+          {/* Unmounted on close, so a reopened dialog starts empty and without an old error. */}
+          {open === 'text' && (
+            <AddTextSourceForm
+              notebookId={notebookId}
+              limits={limits}
+              addTextSource={addTextSource}
+              onAdded={close}
+            />
+          )}
+          {open === 'pdf' && (
+            <AddPdfSourceForm notebookId={notebookId} limits={limits} onAdded={close} />
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
-/** Paste a text as a new Source: title plus text. */
-export function AddTextSourceDialog({ placement, ...formProps }: Props) {
-  const [open, setOpen] = useState(false);
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Trigger placement={placement} />
-      </DialogTrigger>
-      <DialogContent>
-        {/* Unmounted on close, so a reopened dialog starts empty and without an old error. */}
-        <AddTextSourceForm {...formProps} onAdded={() => setOpen(false)} />
-      </DialogContent>
-    </Dialog>
-  );
+const KINDS: readonly Kind[] = ['text', 'pdf'];
+
+function KindIcon({ kind, ...props }: { kind: Kind } & LucideProps) {
+  const Icon = KIND_ICONS[kind];
+  return <Icon aria-hidden {...props} />;
 }
 
 function AddTextSourceForm({

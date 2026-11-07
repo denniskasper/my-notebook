@@ -8,6 +8,7 @@ import { listNotes, NOTE_BODY_MAX_LENGTH, NOTE_TITLE_MAX_LENGTH, type Note } fro
 import {
   getSourceWithPassages,
   listSources,
+  PDF_MAX_BYTES,
   SOURCE_TEXT_MAX_LENGTH,
   SOURCE_TITLE_MAX_LENGTH,
   type Source,
@@ -17,7 +18,7 @@ import { ChatPanel, type MessageView, type OpenCitation } from '@/ui/chat';
 import { NotesPanel, type NoteView } from '@/ui/notes';
 import { AppShell, EmptyConversation, NotebookHeader, Sidebar, type DrawerFocus } from '@/ui/shell';
 import {
-  AddTextSourceDialog,
+  AddSource,
   SourceList,
   SourceReader,
   SourceReaderMissing,
@@ -113,6 +114,7 @@ export default async function NotebookPage({ params, searchParams }: Props) {
     tokenCap: env().SOURCE_TOKEN_CAP,
     titleMax: SOURCE_TITLE_MAX_LENGTH,
     textMax: SOURCE_TEXT_MAX_LENGTH,
+    pdfMaxBytes: PDF_MAX_BYTES,
   };
   const sourceViews = sources.map(toSourceView);
   const active = sources.filter((source) => source.status === 'ready' && source.enabled).length;
@@ -191,7 +193,7 @@ export default async function NotebookPage({ params, searchParams }: Props) {
                   remove: deleteSourceAction,
                 }}
               />
-              <AddTextSourceDialog
+              <AddSource
                 placement="sidebar"
                 notebookId={notebook.id}
                 limits={limits}
@@ -214,8 +216,8 @@ export default async function NotebookPage({ params, searchParams }: Props) {
     >
       {sources.length === 0 && messages.length === 0 ? (
         <EmptyConversation
-          addTextSource={
-            <AddTextSourceDialog
+          addSource={
+            <AddSource
               placement="conversation"
               notebookId={notebook.id}
               limits={limits}

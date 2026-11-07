@@ -14,4 +14,9 @@ export type SourceView = {
 export type PassageView = { ordinal: number; text: string; page: number | null };
 
 /** Values the Source error messages fill in. */
-export type SourceLimits = { tokenCap: number; titleMax: number; textMax: number };
+export type SourceLimits = {
+  tokenCap: number;
+  titleMax: number;
+  textMax: number;
+  pdfMaxBytes: number;
+};

@@ -5,8 +5,11 @@ export {
   sourceTitleSchema,
   type SourceErrorCode,
 } from './input';
+export { pdfPassages, type PdfTextItem } from './pdf-passages';
 export { splitIntoPassages } from './passages';
+export { PDF_MAX_BYTES } from './pdf';
 export {
+  addPdfSource,
   addTextSource,
   deleteSource,
   failStaleSources,
@@ -16,6 +19,7 @@ export {
   processSource,
   retrySource,
   setSourceEnabled,
+  type AddPdfResult,
   type Passage,
   type PromptSource,
   type SetEnabledResult,
