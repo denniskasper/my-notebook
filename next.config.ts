@@ -3,6 +3,12 @@ import type { NextConfig } from 'next';
 const nextConfig: NextConfig = {
   output: 'standalone',
   poweredByHeader: false,
+  // No `next/image` in the app, so no image optimizer: keeps sharp and libvips (~19 MB) out of
+  // the standalone output and the production image.
+  images: { unoptimized: true },
+  outputFileTracingExcludes: {
+    '*': ['./node_modules/.pnpm/sharp@*/**/*', './node_modules/.pnpm/@img+sharp*/**/*'],
+  },
   // pino resolves its transports at runtime; keep it out of the server bundle. The Agent SDK
   // finds its Claude Code binary relative to its own files, so it must stay a real package.
   serverExternalPackages: ['pino', 'pg', '@anthropic-ai/claude-agent-sdk'],

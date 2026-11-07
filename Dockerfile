@@ -21,11 +21,18 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN pnpm build && pnpm build:migrate
 
-FROM node:24-bookworm-slim AS runtime
-# curl is for the orchestrator's health check (`curl -f .../api/health`).
+# The runtime is plain Debian (same release and glibc as the Node image) plus only the `node`
+# binary: no npm, yarn, corepack or C headers, which a layer above the Node image could only
+# hide, not remove (~55 MB smaller).
+FROM debian:bookworm-slim AS runtime
+COPY --from=base /usr/local/bin/node /usr/local/bin/node
+# curl is for the orchestrator's health check (`curl -f .../api/health`). `node` (uid 1000)
+# matches the official image's unprivileged user.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --gid 1000 node \
+    && useradd --uid 1000 --gid node --shell /bin/sh --create-home node
 # Declared after the apt layer so a new commit doesn't invalidate it.
 ARG COMMIT=unknown
 LABEL org.opencontainers.image.source="https://github.com/denniskasper/my-notebook" \
@@ -40,7 +47,7 @@ WORKDIR /app
 COPY --from=build --chown=node:node /app/.next/standalone ./
 COPY --from=build --chown=node:node /app/dist/migrate.mjs ./migrate.mjs
 COPY --from=build --chown=node:node /app/drizzle ./drizzle
-# The official image's unprivileged `node` user (uid 1000).
+# The unprivileged `node` user created above (uid 1000).
 USER node
 EXPOSE 3000
 # Migrate under the advisory lock, then hand PID 1 to the server so it gets SIGTERM.

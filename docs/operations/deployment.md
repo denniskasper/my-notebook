@@ -8,7 +8,8 @@ Every push to `main` runs `check → test → image → security → publish →
 
 Built from the root `Dockerfile` by the CI job `image`, which runs after `check` and `test`. The `security` job scans that image, and only then does `publish` push it (see [CI pipeline](#ci-pipeline)).
 
-- **Base:** `node:24-bookworm-slim` (glibc, so prebuilt native optional dependencies work). Runs as the unprivileged `node` user. `curl` is installed for the orchestrator's health check.
+- **Base:** the build stages use `node:24-bookworm-slim`; the runtime is `debian:bookworm-slim` (same release and glibc, so prebuilt native optional dependencies and the Agent SDK's Claude Code binary work) with only the `node` binary copied in: no npm, yarn, corepack or C headers. Runs as the unprivileged `node` user (uid 1000). `curl` is installed for the orchestrator's health check.
+- **Size:** the `image` job writes the image size and its layers to the job summary on every run. The largest single part is the Agent SDK's bundled Claude Code binary (~340 MB), which Agent mode needs. sharp is excluded (`images.unoptimized`, no `next/image` in the app).
 - **Contents:** the Next.js standalone server (`server.js` with its traced `node_modules` and static assets), `migrate.mjs` (the migration runner bundled by `pnpm build:migrate`) and the SQL migrations in `drizzle/`.
 - **Start:** `node migrate.mjs && exec node server.js`. Migrations run before the server under a Postgres advisory lock, so two containers starting at once (start-first deploys) don't migrate concurrently. A failed migration stops the container before it serves.
 - **Port:** 3000. Health: `GET /api/health` returns the database state and the running `commit`; `503` when the database is down.
