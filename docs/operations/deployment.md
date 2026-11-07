@@ -2,11 +2,11 @@
 
 How the app is built and shipped. Production runs the image CI builds ([ADR 0003](../adr/0003-ci-built-image-deployed-to-dokploy-with-rollback.md)) on a self-hosted Dokploy server; Docker Swarm rolls it out start-first and rolls it back on its own when it is unhealthy. Rolling back by hand: [rollback.md](rollback.md).
 
-Every push to `main` runs `check → test → image → deploy`. A merge that only touches docs or Markdown doesn't run CI and isn't deployed.
+Every push to `main` runs `check → test → image → security → publish → deploy`. A merge that only touches docs or Markdown doesn't run CI and isn't deployed.
 
 ## Container image
 
-Built from the root `Dockerfile` by the CI job `image`, which runs after `check` and `test`.
+Built from the root `Dockerfile` by the CI job `image`, which runs after `check` and `test`. The `security` job scans that image, and only then does `publish` push it (see [CI pipeline](#ci-pipeline)).
 
 - **Base:** `node:24-bookworm-slim` (glibc, so prebuilt native optional dependencies work). Runs as the unprivileged `node` user. `curl` is installed for the orchestrator's health check.
 - **Contents:** the Next.js standalone server (`server.js` with its traced `node_modules` and static assets), `migrate.mjs` (the migration runner bundled by `pnpm build:migrate`) and the SQL migrations in `drizzle/`.
@@ -15,7 +15,7 @@ Built from the root `Dockerfile` by the CI job `image`, which runs after `check`
 
 ### Registry and tags
 
-Pushed to GHCR as `ghcr.io/<OWNER>/my-notebook` on pushes to `main` only; pull requests build and smoke-check the image without pushing.
+Pushed to GHCR as `ghcr.io/<OWNER>/my-notebook` by the `publish` job, on pushes to `main` only; pull requests build, smoke-check and scan the image without pushing.
 
 | Tag           | Meaning                                                 |
 | ------------- | ------------------------------------------------------- |
@@ -53,6 +53,34 @@ An invalid environment makes the server exit at start instead of serving errors.
 
 The `image` job loads the built image, starts it against the job's Postgres service and polls `/api/health` until it answers `200` with `commit` equal to the build's commit. This also runs every migration against an empty database.
 
+## CI pipeline
+
+`ci.yml` runs `check → test → image → security` on every pull request and push to `main`, then `publish` and `deploy` on pushes to `main` only; `pr-title.yml` checks the pull request title.
+
+| Job        | What it does                                                                                                   |
+| ---------- | -------------------------------------------------------------------------------------------------------------- |
+| `check`    | Typecheck, lint, format check                                                                                  |
+| `test`     | Unit, integration and e2e tests (fake `llm`)                                                                   |
+| `image`    | Builds the image, smoke-checks it and hands it to `security` as an artifact                                    |
+| `security` | gitleaks over the full Git history; Trivy scan of that image, failing on CRITICAL vulnerabilities with a fix   |
+| `publish`  | `main` only: rebuilds the image with SBOM and provenance, pushes it by digest, scans that digest, then tags it |
+| `deploy`   | `main` only: deploys the published image on Dokploy (see [Deploy job](#deploy-job))                            |
+| `pr-title` | The PR title is a Conventional Commits subject (it becomes the squash commit on `main`)                        |
+
+Trivy scans only the image, not the repository: the image holds the OS packages and the production dependencies that actually ship. Unfixable findings don't fail the build because there is nothing to upgrade to; Dependabot picks up the fix once it exists.
+
+### Branch protection
+
+Mark these checks as required on `main`: `check`, `test`, `image`, `security`, `pr-title`. `publish` and `deploy` are skipped on pull requests, so they are not required. Pull requests run `ci.yml` without `paths-ignore`, so docs-only PRs report every required check too. `pr-title` runs on `pull_request_target`, which uses the workflow from `main`, so it only reports once `pr-title.yml` is merged; mark it as required after that.
+
+### Pinned actions
+
+Every third-party action is pinned to a full commit SHA, with its version in a comment (`uses: owner/action@<sha> # v1.2.3`). A tag can be moved to other code at any time; a commit SHA can't. This is not hypothetical: in March 2026 the tags of `aquasecurity/trivy-action` were force-pushed to a credential-stealing commit (CVE-2026-33634), and every workflow that referenced the action by tag ran it. A unit test (`src/test/workflow-pins.test.ts`) fails on any unpinned `uses:` in `.github/workflows/`. Downloaded tools follow the same rule: gitleaks is fetched at a fixed version and checked against its SHA-256.
+
+### Dependabot
+
+`.github/dependabot.yml` proposes updates weekly for npm, Docker base images and GitHub Actions, one grouped PR per ecosystem (npm majors in their own group). Action updates keep the SHA pin and update the version comment. A seven-day cooldown keeps freshly published releases out until they have had time to be pulled if compromised; Node majors are ignored because moving off Node 24 is a deliberate change.
+
 ## Migrations: expand/contract
 
 Deploys are start-first (the new container runs next to the old one) and a rollback never reverts the schema. Every migration must therefore work with the **previous** image still running:
@@ -64,7 +92,7 @@ Never rename or drop a column, or add a `NOT NULL` column without a default, in 
 
 ## Deploy job
 
-The CI job `deploy` runs on pushes to `main` only, after `check`, `test` and `image` (which pushed `sha-<short>` and `main`). It runs in the GitHub environment `production`, which only deploys from `main` and holds its secrets:
+The CI job `deploy` runs on pushes to `main` only, after `publish` (which pushed the scanned image as `sha-<short>` and `main`). It runs in the GitHub environment `production`, which only deploys from `main` and holds its secrets:
 
 | Secret                   | Holds                                                   |
 | ------------------------ | ------------------------------------------------------- |

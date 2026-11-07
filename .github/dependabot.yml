@@ -1,0 +1,50 @@
+version: 2
+
+# Weekly, one grouped PR per ecosystem (npm majors separately, they need a closer look).
+# The cooldown lets a freshly published release age a week before it is proposed,
+# so a compromised version is more likely to be pulled before it reaches us.
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: chore(deps)
+    groups:
+      npm:
+        update-types: [minor, patch]
+      npm-major:
+        update-types: [major]
+
+  - package-ecosystem: docker
+    directories: [/, /.sandcastle]
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    ignore:
+      # The stack is on Node 24; moving to the next major is a deliberate change.
+      - dependency-name: node
+        update-types: [version-update:semver-major]
+    commit-message:
+      prefix: chore(deps)
+    groups:
+      docker:
+        patterns: ['*']
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: chore(deps)
+    groups:
+      github-actions:
+        patterns: ['*']
