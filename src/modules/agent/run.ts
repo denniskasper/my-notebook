@@ -14,6 +14,7 @@ import { getNotebook } from '@/modules/notebooks';
 import {
   checkUsage,
   costMicroUsd,
+  WEB_SEARCH_MICRO_USD,
   recordUsage,
   withAgentSlot,
   type UsageBlock,
@@ -23,7 +24,7 @@ import { llm, type AgentOutcome, type LlmUsage } from '@/platform/llm';
 import { logger, type Logger } from '@/platform/logging';
 
 import { createMarkerParser, type MarkerEvent } from './markers';
-import { AGENT_PLUGIN_DIR } from './plugin';
+import { AGENT_PLUGIN_DIR, AGENT_SKILLS } from './plugin';
 import { AGENT_SYSTEM_PROMPT, buildAgentPrompt } from './prompt';
 import { createNotebookTools, type StepUpdate } from './tools';
 
@@ -68,9 +69,6 @@ export type AgentLimits = {
   maxPageReads: number;
   maxSourcesAdded: number;
 };
-
-// What Anthropic charges per web search, in micro-dollars ($0.01).
-const WEB_SEARCH_MICRO_USD = 10_000;
 
 type Options = {
   /** Aborted when the Visitor stops the run (or goes away). */
@@ -237,6 +235,7 @@ async function runInSlot(
         tools: toolbox.tools,
         webSearch: toolbox.webSearch,
         plugins: [AGENT_PLUGIN_DIR],
+        skills: AGENT_SKILLS,
         maxTurns: limits.maxTurns,
         maxBudgetUsd: limits.maxBudgetUsd,
       },

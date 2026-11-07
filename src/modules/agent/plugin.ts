@@ -6,3 +6,6 @@ import { join } from 'node:path';
  * standalone server's directory in the image (next.config.ts traces it there).
  */
 export const AGENT_PLUGIN_DIR = join(process.cwd(), 'src/modules/agent/agent-plugin');
+
+/** The plugin's Skills, as the Agent SDK names them: `<plugin name>:<skill>`. */
+export const AGENT_SKILLS = ['notebook:quellen-recherche'];

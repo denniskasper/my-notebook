@@ -80,7 +80,7 @@ function hostOf(url: string): string | null {
 }
 
 /** A per-run cap: a slot is taken before the work awaits, since calls may run at once. */
-function counter(max: number) {
+function cap(max: number) {
   let used = 0;
   return {
     take: () => {
@@ -112,9 +112,9 @@ export function createNotebookTools(
   const maxSourcesAdded = options.maxSourcesAdded ?? DEFAULT_MAX_SOURCES_ADDED;
   const readMaxChars = options.readMaxChars ?? DEFAULT_READ_MAX_CHARS;
   const pageMaxChars = options.pageMaxChars ?? DEFAULT_PAGE_MAX_CHARS;
-  const searches = counter(maxWebSearches);
-  const pageReads = counter(maxPageReads);
-  const sourcesAdded = counter(maxSourcesAdded);
+  const searches = cap(maxWebSearches);
+  const pageReads = cap(maxPageReads);
+  const sourcesAdded = cap(maxSourcesAdded);
   // Source id → its number in this run (q1, q2, …), and every Passage read so far.
   const sourceKeys = new Map<string, string>();
   const read = new Map<string, ReadPassage>();

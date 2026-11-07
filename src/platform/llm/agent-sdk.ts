@@ -29,8 +29,6 @@ const SERVER = 'notebook';
 // The built-in tools the Agent gets: web search (on Anthropic's side) and Skills.
 const WEB_SEARCH = 'WebSearch';
 const SKILL = 'Skill';
-// Plugin Skills are named `<plugin>:<skill>`; plugins ship only the research Skill.
-const SKILLS = ['notebook:quellen-recherche'];
 
 const webSearchInputSchema = z.object({ query: z.string() }).loose();
 
@@ -62,7 +60,7 @@ function toUsage(usage: ApiUsage): LlmUsage {
 /**
  * The Agent SDK adapter (ADR 0001): a fresh `query()` per Agent run. Its only
  * built-in tools are web search (behind the request's gate) and Skills (only
- * the request's plugins); the notebook tools run on an in-process MCP server.
+ * the request's plugin Skills); the notebook tools run on an in-process MCP server.
  * No settings from disk, no saved session, and a throwaway config dir.
  */
 export async function* runAgentWithSdk(
@@ -104,7 +102,7 @@ export async function* runAgentWithSdk(
       ],
       // Only the shipped plugin's Skills, not Claude Code's bundled ones.
       plugins: (request.plugins ?? []).map((path) => ({ type: 'local' as const, path })),
-      skills: request.plugins?.length ? SKILLS : [],
+      skills: request.skills ?? [],
       ...(request.webSearch && { hooks: webSearchHooks(request.webSearch) }),
       // Anything not allowed above is refused, never asked about.
       permissionMode: 'dontAsk',

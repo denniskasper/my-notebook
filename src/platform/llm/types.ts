@@ -78,6 +78,8 @@ export type AgentRequest = {
   webSearch?: AgentWebSearch;
   /** Directories of local plugins whose Skills the Agent may use. */
   plugins?: string[];
+  /** The plugin Skills the Agent may use, named `<plugin>:<skill>`. */
+  skills?: string[];
   maxTurns: number;
   maxBudgetUsd: number;
 };

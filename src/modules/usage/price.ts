@@ -34,6 +34,9 @@ const PRICES = new Map<string, PriceTable>([
   [MODELS.studio, SONNET_5_5],
 ]);
 
+/** What Anthropic charges per web search, in micro-dollars ($0.01). */
+export const WEB_SEARCH_MICRO_USD = 10_000;
+
 /** What a call cost in micro-dollars (rounded up), from its model and token usage. */
 export function costMicroUsd(model: string, usage: TokenUsage): number {
   const table = PRICES.get(model);
