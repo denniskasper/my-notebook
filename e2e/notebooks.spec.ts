@@ -9,13 +9,15 @@ test('a Visitor creates a Notebook, renames it and finds it again', async ({ pag
 
   await page.goto('/');
 
-  // The tab shows My Notebook's own mark.
+  // Without these the browser falls back to a blank tab icon and asks for a 404ing /favicon.ico.
   await expect(page.locator('head link[rel="icon"][type="image/svg+xml"]')).toHaveCount(1);
   const iconLinks = page.locator('head link[rel="icon"], head link[rel="apple-touch-icon"]');
   const iconHrefs = await iconLinks.evaluateAll((links) =>
     links.map((link) => link.getAttribute('href') ?? ''),
   );
   for (const href of [...iconHrefs, '/favicon.ico']) {
+    // An empty href would resolve to the page itself and pass the status check.
+    expect(href).not.toBe('');
     expect((await page.request.get(href)).status(), href).toBe(200);
   }
 
