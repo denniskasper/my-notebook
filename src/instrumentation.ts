@@ -16,4 +16,6 @@ export async function register() {
   startStaleSourceSweep();
   const { startStaleMessageSweep } = await import('@/modules/chat');
   startStaleMessageSweep();
+  const { startVisitorPurge } = await import('@/modules/visitors');
+  startVisitorPurge();
 }

@@ -4,6 +4,7 @@ import {
   errorMessage,
   format,
   formatNumber,
+  formatUsd,
   plural,
   retryValues,
   strings,
@@ -100,5 +101,14 @@ describe('Budget guard messages', () => {
     );
     expect(errorMessage('demo_budget_total')).toBe('Das Demo-Budget ist aufgebraucht.');
     expect(errorMessage('agent_busy')).toBe('Agent ist gerade ausgelastet.');
+  });
+});
+
+describe('formatUsd', () => {
+  it('shows micro-dollars as German dollar amounts with cents', () => {
+    expect(formatUsd(0)).toMatch(/^0,00\s\$$/);
+    expect(formatUsd(421_337)).toMatch(/^0,42\s\$$/);
+    expect(formatUsd(13_000_000)).toMatch(/^13,00\s\$$/);
+    expect(formatUsd(1_234_565_000)).toMatch(/^1\.234,57\s\$$/);
   });
 });

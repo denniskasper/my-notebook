@@ -20,6 +20,13 @@ export function formatNumber(value: number): string {
   return numberFormat.format(value);
 }
 
+const usdFormat = new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'USD' });
+
+/** Micro-dollars (as stored in `usage_events`) as a German dollar amount: „0,42 $“. */
+export function formatUsd(microUsd: number): string {
+  return usdFormat.format(microUsd / 1_000_000);
+}
+
 /** Picks the German plural form for `count` and fills `{count}`. */
 export function plural(count: number, forms: PluralForms): string {
   const template = Math.abs(count) === 1 ? forms.one : forms.other;
@@ -159,6 +166,23 @@ export const strings = {
     meterLeft: '{percent} % übrig',
     composerPaused: 'Fragen sind gerade pausiert.',
     meterHint: 'Dein Kontingent für KI-Antworten heute. Neu ab {time} Uhr.',
+  },
+  status: {
+    title: 'Status',
+    verdict: {
+      ok: 'Alles in Betrieb.',
+      down: 'Die Datenbank ist nicht erreichbar.',
+    },
+    checkedAt: 'Stand {time} Uhr',
+    commit: 'Laufende Version',
+    database: { label: 'Datenbank', ok: 'erreichbar', down: 'nicht erreichbar' },
+    spendToday: 'KI-Ausgaben heute',
+    spendTotal: 'KI-Ausgaben insgesamt',
+    spendOf: '{spent} von {limit}',
+    spendTodayHint: 'Demo-Budget pro Tag, neu ab 00:00 Uhr.',
+    spendTotalHint: 'Demo-Budget für die gesamte Demo.',
+    spendUnavailable: 'Ohne Datenbank nicht abrufbar.',
+    back: 'Zur App',
   },
   notFound: {
     title: 'Notebook nicht gefunden',
