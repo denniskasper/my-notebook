@@ -67,7 +67,7 @@ export default async function StatusPage() {
           <div className="flex items-baseline justify-between gap-6 border-b border-line py-3.5">
             <dt className="text-muted">{status.commit}</dt>
             <dd className="text-text tabular-nums" title={commit}>
-              {commit.slice(0, 12)}
+              {commit.slice(0, 7)}
             </dd>
           </div>
           <div className="flex items-baseline justify-between gap-6 border-b border-line py-3.5">
