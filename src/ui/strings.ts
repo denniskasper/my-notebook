@@ -74,7 +74,28 @@ export const strings = {
     composerDisabled: 'Füge zuerst eine Quelle hinzu.',
     modeChat: 'Chat',
     modeAgent: 'Agent',
+    modeLabel: 'Modus',
+    agentPlaceholder: 'Beschreibe eine Aufgabe für den Agent …',
+    agentScope: 'Darf deine Quellen lesen und Notizen schreiben',
     send: 'Senden',
+  },
+  agent: {
+    answer: 'Antwort des Agent',
+    name: 'Agent',
+    working: 'Agent arbeitet …',
+    stop: 'Agent stoppen',
+    stopped: 'Abgebrochen',
+    steps: 'Schritte',
+    stepCount: { one: '{count} Schritt', other: '{count} Schritte' },
+    showSteps: 'Schritte anzeigen',
+    hideSteps: 'Schritte ausblenden',
+    stepStatus: { running: 'läuft', done: 'erledigt', failed: 'fehlgeschlagen' },
+    stepLabels: {
+      list_sources: { plain: 'Prüft die Quellen', withArgument: 'Prüft die Quellen' },
+      read_source: { plain: 'Liest eine Quelle', withArgument: 'Liest Quelle „{argument}“' },
+      create_note: { plain: 'Schreibt eine Notiz', withArgument: 'Schreibt Notiz „{argument}“' },
+    },
+    stepFallback: 'Arbeitet',
   },
   chat: {
     label: 'Chat',
@@ -242,6 +263,10 @@ export const strings = {
       rate_limited: 'Kurz durchatmen – in {minutes} Min. wieder möglich.',
       agent_busy: 'Agent ist gerade ausgelastet.',
       studio_busy: 'Ein Briefing wird gerade erstellt. Warte, bis es fertig ist.',
+      invalid_task: 'Beschreibe eine Aufgabe mit höchstens {max} Zeichen.',
+      agent_max_turns: 'Der Agent hat die Höchstzahl an Schritten erreicht.',
+      agent_max_budget: 'Der Agent hat sein Kostenlimit für diese Aufgabe erreicht.',
+      agent_timeout: 'Der Agent hat sein Zeitlimit von drei Minuten erreicht.',
       visitor_limit:
         'Von deinem Netzwerk aus wurden heute schon zu viele neue Notebooks begonnen. Morgen geht’s weiter.',
       invalid_url: 'Gib eine Webadresse ein, die mit http:// oder https:// beginnt.',
@@ -283,6 +308,14 @@ export function retryValues(retryAt: string, now: Date): { time: string; minutes
 }
 
 export type ErrorCode = keyof typeof strings.errors.codes;
+
+/** The timeline label of a Step: the tool in German, with its key argument if it has one. */
+export function stepLabel(tool: string, argument: string | null): string {
+  const labels: Record<string, { plain: string; withArgument: string }> = strings.agent.stepLabels;
+  const label = labels[tool];
+  if (!label) return strings.agent.stepFallback;
+  return argument === null ? label.plain : format(label.withArgument, { argument });
+}
 
 /** Narrows a stored code (e.g. `sources.error_code`) to a known one; anything else is `unknown`. */
 export function toErrorCode(code: string | null): ErrorCode {

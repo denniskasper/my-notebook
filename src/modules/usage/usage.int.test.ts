@@ -40,6 +40,18 @@ describe('recordUsage', () => {
       costMicroUsd: 1_500,
     });
   });
+
+  it('keeps a cost the SDK reported instead of pricing the tokens (an Agent run)', async () => {
+    const event = await recordUsage({
+      visitorId: visitor,
+      notebookId: notebook,
+      ...haikuCall,
+      feature: 'agent',
+      model: MODELS.agent,
+      costMicroUsd: 42_000,
+    });
+    expect(event).toMatchObject({ feature: 'agent', costMicroUsd: 42_000 });
+  });
 });
 
 describe('spendSince', () => {

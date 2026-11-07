@@ -1,5 +1,6 @@
 import { setTimeout as sleep } from 'node:timers/promises';
 
+import { runFakeAgent } from './fake-agent';
 import { MODELS } from './models';
 import type { ChatRequest, ChatStreamEvent, LlmCitation, Llm, LlmUsage } from './types';
 
@@ -28,6 +29,9 @@ export function createFakeLlm(options: { delayMs?: number } = {}): Llm {
         delayMs,
         model: MODELS.studio,
       });
+    },
+    runAgent(request, { signal }) {
+      return runFakeAgent(request, { signal, delayMs });
     },
   };
 }

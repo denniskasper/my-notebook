@@ -137,6 +137,9 @@ jobs:
           exit 1
       - if: always()
         run: docker rm -f smoke || true
+      # Agent mode needs the SDK's bundled Claude Code binary, which file tracing can't see.
+      - name: Check the Agent SDK binary
+        run: docker run --rm -i --entrypoint node my-notebook:smoke --input-type=module - < docker/check-agent-binary.mjs
       - name: Save image for the security scan
         run: docker save my-notebook:smoke -o image.tar
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

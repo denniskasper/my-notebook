@@ -38,6 +38,8 @@ export function noteFromAnswer(parts: readonly MessagePart[]): {
   const citations: NoteCitations = {};
   let n = 0;
   for (const part of parts) {
+    // An Agent answer's Steps are its timeline, not its text.
+    if (part.type !== 'text') continue;
     body += part.text;
     for (const citation of part.citations) {
       n += 1;

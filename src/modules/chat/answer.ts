@@ -1,18 +1,15 @@
-import { and, eq, gt, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { getNotebook } from '@/modules/notebooks';
 import { listPromptSources } from '@/modules/sources';
 import { checkUsage, estimateOutputTokens, recordUsage, type UsageBlock } from '@/modules/usage';
-import { db } from '@/platform/db';
 import { llm, type ChatRequest, type LlmUsage } from '@/platform/llm';
 import { logger } from '@/platform/logging';
 
 import { toCitation, type Citation, type PromptDocument } from './citations';
 import type { TextPart } from './parts';
-import { buildChatRequest, historyBudget, trimHistory, type HistoryTurn } from './prompt';
-import { messages } from './schema';
-import { listMessages, STREAMING_STALE_AFTER_MS, type ChatMessage } from './store';
+import { buildChatRequest, historyBudget, trimHistory } from './prompt';
+import { finishAnswer, listHistory, startExchange } from './store';
 
 export const QUESTION_MAX_LENGTH = 4_000;
 
@@ -82,7 +79,7 @@ export async function answerQuestion(
     });
   }
 
-  const history = toHistory(await listMessages(visitorId, notebookId));
+  const history = await listHistory(visitorId, notebookId);
   const sourceTokens = sources.reduce((sum, source) => sum + source.tokenCount, 0);
   const { request, documents } = buildChatRequest({
     sources,
@@ -90,66 +87,25 @@ export async function answerQuestion(
     question: question.data,
   });
 
-  const started = await startAnswer(notebookId, question.data);
+  const started = await startExchange({ notebookId, question: question.data, mode: 'chat' });
   if (!started) return emit({ type: 'error', error: 'chat_busy' });
   await emit({ type: 'started', ...started });
 
   const answer = await streamAnswer(request, documents, { signal, emit });
   // Usage first: the call is billed even if storing the answer fails.
   await recordAnswerUsage({ visitorId, notebookId }, answer);
-  await finishAnswer(started.assistantMessageId, answer);
+  const stored = await finishAnswer(started.assistantMessageId, {
+    status: answer.status,
+    parts: answer.parts,
+    errorCode: answer.status === 'failed' ? 'llm_failed' : null,
+  });
+  logger().info({
+    event: stored ? `chat.${answer.status}` : 'chat.finish_skipped',
+    messageId: started.assistantMessageId,
+  });
 
   if (answer.status === 'failed') await emit({ type: 'error', error: 'llm_failed' });
   else await emit({ type: 'done', status: answer.status });
-}
-
-/** Earlier questions with the text of their answers; failed or empty answers are left out. */
-function toHistory(conversation: readonly ChatMessage[]): HistoryTurn[] {
-  const turns: HistoryTurn[] = [];
-  conversation.forEach((message, index) => {
-    const reply = conversation[index + 1];
-    if (message.role !== 'user' || reply?.role !== 'assistant') return;
-    if (reply.status !== 'complete' && reply.status !== 'stopped') return;
-    const answer = reply.parts.map((part) => part.text).join('');
-    if (answer.trim() === '') return;
-    turns.push({ question: message.parts.map((part) => part.text).join(''), answer });
-  });
-  return turns;
-}
-
-/** Stores the question and a `streaming` answer; null while another answer is still streaming. */
-async function startAnswer(
-  notebookId: string,
-  question: string,
-): Promise<{ userMessageId: string; assistantMessageId: string } | null> {
-  return db().transaction(async (tx) => {
-    // One answer at a time per Notebook, also across concurrent requests.
-    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`chat:${notebookId}`}))`);
-    const [streaming] = await tx
-      .select({ id: messages.id })
-      .from(messages)
-      .where(
-        and(
-          eq(messages.notebookId, notebookId),
-          eq(messages.status, 'streaming'),
-          gt(messages.createdAt, new Date(Date.now() - STREAMING_STALE_AFTER_MS)),
-        ),
-      )
-      .limit(1);
-    if (streaming) return null;
-
-    const userPart: TextPart = { ...emptyTextPart(), text: question };
-    const [user] = await tx
-      .insert(messages)
-      .values({ notebookId, role: 'user', parts: [userPart], status: 'complete' })
-      .returning({ id: messages.id });
-    const [assistant] = await tx
-      .insert(messages)
-      .values({ notebookId, role: 'assistant', parts: [], status: 'streaming' })
-      .returning({ id: messages.id });
-    if (!user || !assistant) throw new Error('Message insert returned no row');
-    return { userMessageId: user.id, assistantMessageId: assistant.id };
-  });
 }
 
 const emptyTextPart = (): TextPart => ({ type: 'text', text: '', citations: [] });
@@ -227,24 +183,6 @@ async function streamAnswer(
     }
   }
   return answer;
-}
-
-/** Stores the outcome, unless the answer left `streaming` (the sweep's `interrupted` stands) or is gone. */
-async function finishAnswer(messageId: string, answer: Answer): Promise<void> {
-  const parts = answer.parts.filter((part) => part.text !== '' || part.citations.length > 0);
-  const [row] = await db()
-    .update(messages)
-    .set({
-      parts,
-      status: answer.status,
-      errorCode: answer.status === 'failed' ? 'llm_failed' : null,
-    })
-    .where(and(eq(messages.id, messageId), eq(messages.status, 'streaming')))
-    .returning({ id: messages.id });
-  logger().info({
-    event: row ? `chat.${answer.status}` : 'chat.finish_skipped',
-    messageId,
-  });
 }
 
 async function recordAnswerUsage(

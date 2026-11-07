@@ -40,6 +40,11 @@ export const envSchema = z
     // Tests only: lets the guarded URL fetcher reach 127.0.0.1 on this one port,
     // where the integration and e2e fixtures serve their pages.
     URL_FETCH_TEST_LOOPBACK_PORT: z.coerce.number().int().min(1).max(65_535).optional(),
+    // Agent run caps: model turns, spend, wall-clock time and Notes written per run.
+    AGENT_MAX_TURNS: count.default(15),
+    AGENT_MAX_BUDGET_USD: z.coerce.number().positive().default(0.3),
+    AGENT_TIMEOUT_SECONDS: count.default(180),
+    AGENT_MAX_NOTES: count.default(2),
   })
   .transform((env, ctx) => {
     if (env.IP_HASH_SECRET === undefined && env.NODE_ENV === 'production') {

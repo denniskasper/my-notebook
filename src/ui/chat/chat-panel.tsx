@@ -11,7 +11,9 @@ import { errorMessage, retryValues, strings, type ErrorCode } from '@/ui/strings
 import { chatEventSchema, type ChatEvent } from './events';
 import { Message } from './message';
 import type { SaveAsNote } from './save-as-note';
-import type { MessagePartView, MessageView, OpenCitation } from './types';
+import type { MessagePartView, MessageView, OpenCitation, TextPartView } from './types';
+
+type Mode = MessageView['mode'];
 
 // A server-side answer that is still streaming (e.g. after a reload) is polled at this pace.
 const POLL_INTERVAL_MS = 1000;
@@ -32,6 +34,7 @@ type Props = {
   /** e.g. „2 von 3 Quellen aktiv“ or „Keine Quellen“. */
   sourceSummary: string;
   questionMaxLength: number;
+  taskMaxLength: number;
   clearChat: (formData: FormData) => Promise<void>;
   saveAsNote: SaveAsNote;
 };
@@ -46,6 +49,7 @@ type ComposerError = { code: ErrorCode; values: Record<string, string | number> 
 
 /** The question being answered right now, until the stored conversation has it. */
 type Pending = {
+  mode: Mode;
   question: string;
   userMessageId: string | null;
   assistantMessageId: string | null;
@@ -64,16 +68,21 @@ export function ChatPanel({
   blocked,
   sourceSummary,
   questionMaxLength,
+  taskMaxLength,
   clearChat,
   saveAsNote,
 }: Props) {
   const router = useRouter();
+  const [mode, setMode] = useState<Mode>('chat');
   const [draft, setDraft] = useState('');
   const [pending, setPending] = useState<Pending | null>(null);
   const [error, setError] = useState<ComposerError | null>(null);
   const stopRef = useRef<AbortController | null>(null);
   const streaming = pending?.status === 'streaming';
-  const composerOpen = canSubmitQuestion && blocked === null;
+  const agentMode = mode === 'agent';
+  // The Agent may also work on a Notebook whose Sources are all switched off (it says so).
+  const composerOpen = (agentMode || canSubmitQuestion) && blocked === null;
+  const maxLength = agentMode ? taskMaxLength : questionMaxLength;
   // The Demo budget has its app-wide banner; only the Visitor's own allowance is told here.
   const allowanceMessage = blocked?.code === 'daily_allowance' ? allowanceText(blocked) : null;
 
@@ -93,13 +102,14 @@ export function ChatPanel({
   const sources = new Set(existingSourceIds);
   const emptyBody = canSubmitQuestion ? strings.chat.emptyBody : strings.chat.noActiveSources;
 
-  async function streamQuestion(question: string) {
+  async function streamQuestion(question: string, mode: Mode) {
     const stop = new AbortController();
     stopRef.current = stop;
     let started = false;
     setError(null);
     setDraft('');
     setPending({
+      mode,
       question,
       userMessageId: null,
       assistantMessageId: null,
@@ -114,22 +124,27 @@ export function ChatPanel({
       setPending(null);
       setError({
         code,
-        values: { max: questionMaxLength, ...(retryAt && retryValues(retryAt, new Date())) },
+        values: {
+          max: mode === 'agent' ? taskMaxLength : questionMaxLength,
+          ...(retryAt && retryValues(retryAt, new Date())),
+        },
       });
       setDraft(question);
     };
 
     try {
-      const response = await fetch(`/api/notebooks/${notebookId}/chat`, {
+      const response = await fetch(`/api/notebooks/${notebookId}/${mode}`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ question }),
+        body: JSON.stringify(mode === 'agent' ? { task: question } : { question }),
         signal: stop.signal,
       });
       if (!response.ok || !response.body)
         throw new Error(`Chat request failed: ${response.status}`);
       for await (const event of readSseEvents(response.body, chatEventSchema)) {
         if (event.type === 'started') started = true;
+        // A Note the Agent wrote shows up in the Notes tab right away.
+        if (event.type === 'note_created') router.refresh();
         if (event.type === 'error' && !started) refuse(event.error, event.retryAt);
         else setPending((current) => current && apply(current, event));
       }
@@ -159,7 +174,7 @@ export function ChatPanel({
     event?.preventDefault();
     const question = draft.trim();
     if (!composerOpen || streaming || question === '') return;
-    void streamQuestion(question);
+    void streamQuestion(question, mode);
   }
 
   return (
@@ -213,7 +228,13 @@ export function ChatPanel({
         )}
         <form
           onSubmit={submit}
-          className="mx-auto max-w-[700px] rounded-[10px] border border-line bg-panel px-2.5 pt-2.5 pb-2 transition-colors focus-within:border-muted/60"
+          data-mode={mode}
+          className={cn(
+            'mx-auto max-w-[700px] rounded-[10px] border bg-panel px-2.5 pt-2.5 pb-2 transition-[border-color,box-shadow]',
+            agentMode
+              ? 'border-agent-line shadow-[0_0_0_3px_var(--color-agent-bg)]'
+              : 'border-line focus-within:border-muted/60',
+          )}
         >
           <AutoSizeTextarea
             value={draft}
@@ -221,19 +242,18 @@ export function ChatPanel({
             onSubmit={() => submit()}
             disabled={!composerOpen}
             disabledHint={blocked ? strings.usage.composerPaused : strings.chat.noActiveSources}
-            maxLength={questionMaxLength}
+            placeholder={
+              agentMode
+                ? strings.conversation.agentPlaceholder
+                : strings.conversation.composerPlaceholder
+            }
+            maxLength={maxLength}
           />
           <div className="flex items-center gap-2">
-            <div className="inline-flex gap-0.5 rounded-md border border-line p-0.5" aria-hidden>
-              {/* Agent mode arrives with its own slice. */}
-              <span className="flex h-[22px] items-center rounded-sm bg-raise px-2.5 text-[12px]">
-                {strings.conversation.modeChat}
-              </span>
-              <span className="flex h-[22px] items-center rounded-sm px-2.5 text-[12px] text-faint">
-                {strings.conversation.modeAgent}
-              </span>
-            </div>
-            <span className="min-w-0 truncate text-[11.5px] text-faint">{sourceSummary}</span>
+            <ModeSwitch mode={mode} onChange={setMode} disabled={streaming} />
+            <span className="min-w-0 truncate text-[11.5px] text-faint">
+              {agentMode ? strings.conversation.agentScope : sourceSummary}
+            </span>
             <span className="flex-1" />
             {shown.length > 0 && (
               <ClearChatButton
@@ -247,8 +267,8 @@ export function ChatPanel({
               <button
                 type="button"
                 onClick={stopAnswer}
-                aria-label={strings.chat.stop}
-                title={strings.chat.stop}
+                aria-label={pending?.mode === 'agent' ? strings.agent.stop : strings.chat.stop}
+                title={pending?.mode === 'agent' ? strings.agent.stop : strings.chat.stop}
                 className="grid size-7 place-items-center rounded-md border border-line text-text hover:bg-hover"
               >
                 <Square size={11} fill="currentColor" aria-hidden />
@@ -259,7 +279,10 @@ export function ChatPanel({
                 disabled={!composerOpen || draft.trim() === ''}
                 aria-label={strings.conversation.send}
                 title={strings.conversation.send}
-                className="grid size-7 place-items-center rounded-md bg-text text-bg transition-opacity disabled:opacity-30"
+                className={cn(
+                  'grid size-7 place-items-center rounded-md transition-opacity disabled:opacity-30',
+                  agentMode ? 'bg-agent text-bg' : 'bg-text text-bg',
+                )}
               >
                 <ArrowUp size={14} aria-hidden />
               </button>
@@ -288,7 +311,7 @@ function apply(pending: Pending, event: ChatEvent): Pending {
     case 'text':
       return {
         ...pending,
-        parts: withPart(pending.parts, event.part, (part) => ({
+        parts: withTextPart(pending.parts, event.part, (part) => ({
           ...part,
           text: part.text + event.text,
         })),
@@ -296,27 +319,39 @@ function apply(pending: Pending, event: ChatEvent): Pending {
     case 'citation':
       return {
         ...pending,
-        parts: withPart(pending.parts, event.part, (part) => ({
+        parts: withTextPart(pending.parts, event.part, (part) => ({
           ...part,
           citations: [...part.citations, event.citation],
         })),
       };
+    case 'step': {
+      const parts = [...pending.parts];
+      while (parts.length < event.part) parts.push(emptyText());
+      parts[event.part] = event.step;
+      return { ...pending, parts };
+    }
+    case 'note_created':
+      return pending;
     case 'done':
       // A stop the Visitor asked for already shows as stopped.
-      return pending.status === 'streaming' ? { ...pending, status: event.status } : pending;
+      if (pending.status !== 'streaming') return pending;
+      return { ...pending, status: event.status, errorCode: event.reason ?? null };
     case 'error':
       return { ...pending, status: 'failed', errorCode: event.error };
   }
 }
 
-function withPart(
+const emptyText = (): TextPartView => ({ type: 'text', text: '', citations: [] });
+
+function withTextPart(
   parts: MessagePartView[],
   index: number,
-  update: (part: MessagePartView) => MessagePartView,
+  update: (part: TextPartView) => TextPartView,
 ): MessagePartView[] {
   const next = [...parts];
-  while (next.length <= index) next.push({ text: '', citations: [] });
-  next[index] = update(next[index] ?? { text: '', citations: [] });
+  while (next.length <= index) next.push(emptyText());
+  const current = next[index];
+  next[index] = update(current?.type === 'text' ? current : emptyText());
   return next;
 }
 
@@ -325,14 +360,16 @@ function pendingViews(pending: Pending): MessageView[] {
     {
       id: pending.userMessageId ?? 'pending-question',
       role: 'user',
+      mode: pending.mode,
       status: 'complete',
       errorCode: null,
-      parts: [{ text: pending.question, citations: [] }],
+      parts: [{ type: 'text', text: pending.question, citations: [] }],
       stored: false,
     },
     {
       id: pending.assistantMessageId ?? 'pending-answer',
       role: 'assistant',
+      mode: pending.mode,
       status: pending.status,
       errorCode: pending.errorCode,
       parts: pending.parts,
@@ -348,6 +385,7 @@ type TextareaProps = {
   disabled: boolean;
   /** The placeholder while disabled: why the composer is closed. */
   disabledHint: string;
+  placeholder: string;
   maxLength: number;
 };
 
@@ -358,6 +396,7 @@ function AutoSizeTextarea({
   onSubmit,
   disabled,
   disabledHint,
+  placeholder,
   maxLength,
 }: TextareaProps) {
   const ref = useRef<HTMLTextAreaElement>(null);
@@ -381,10 +420,56 @@ function AutoSizeTextarea({
           onSubmit();
         }
       }}
-      aria-label={strings.conversation.composerPlaceholder}
-      placeholder={disabled ? disabledHint : strings.conversation.composerPlaceholder}
+      aria-label={placeholder}
+      placeholder={disabled ? disabledHint : placeholder}
       className="block h-[42px] w-full resize-none bg-transparent text-[13.5px] leading-[1.5] outline-none placeholder:text-faint disabled:cursor-not-allowed"
     />
+  );
+}
+
+const MODES: { mode: Mode; label: string }[] = [
+  { mode: 'chat', label: strings.conversation.modeChat },
+  { mode: 'agent', label: strings.conversation.modeAgent },
+];
+
+/** Chat or Agent for the next message; periwinkle marks Agent. */
+function ModeSwitch({
+  mode,
+  onChange,
+  disabled,
+}: {
+  mode: Mode;
+  onChange: (mode: Mode) => void;
+  disabled: boolean;
+}) {
+  return (
+    <div
+      role="radiogroup"
+      aria-label={strings.conversation.modeLabel}
+      className="inline-flex shrink-0 gap-0.5 rounded-md border border-line p-0.5"
+    >
+      {MODES.map((option) => {
+        const on = option.mode === mode;
+        return (
+          <button
+            key={option.mode}
+            type="button"
+            role="radio"
+            aria-checked={on}
+            disabled={disabled}
+            onClick={() => onChange(option.mode)}
+            className={cn(
+              'flex h-[22px] items-center rounded-sm px-2.5 text-[12px] transition-colors disabled:cursor-not-allowed',
+              !on && 'text-faint hover:text-text',
+              on && option.mode === 'chat' && 'bg-raise text-text',
+              on && option.mode === 'agent' && 'bg-agent-bg text-agent',
+            )}
+          >
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 

@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { z } from 'zod';
 
+import { AGENT_TASK_MAX_LENGTH } from '@/modules/agent';
 import { listMessages, QUESTION_MAX_LENGTH, type ChatMessage } from '@/modules/chat';
 import { getNotebook, NOTEBOOK_TITLE_MAX_LENGTH } from '@/modules/notebooks';
 import { listNotes, NOTE_BODY_MAX_LENGTH, NOTE_TITLE_MAX_LENGTH, type Note } from '@/modules/notes';
@@ -87,9 +88,11 @@ function toMessageView(message: ChatMessage): MessageView {
   return {
     id: message.id,
     role: message.role,
+    mode: message.mode,
     status: message.status,
     errorCode: message.errorCode === null ? null : toErrorCode(message.errorCode),
-    parts: message.parts.map(({ text, citations }) => ({ text, citations })),
+    // Text parts and Steps have the same shape in the module and the view.
+    parts: message.parts,
     stored: true,
   };
 }
@@ -283,6 +286,7 @@ export default async function NotebookPage({ params, searchParams }: Props) {
           blocked={spendBlock}
           sourceSummary={chatSourceSummary}
           questionMaxLength={QUESTION_MAX_LENGTH}
+          taskMaxLength={AGENT_TASK_MAX_LENGTH}
           clearChat={clearChatAction}
           saveAsNote={saveAnswerAsNoteAction}
         />
