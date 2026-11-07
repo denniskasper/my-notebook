@@ -8,6 +8,7 @@ import { cn } from '@/ui/cn';
 import { format, strings } from '@/ui/strings';
 
 import type { CitationView } from './events';
+import { splitTrailingWord } from './trailing-word';
 import type { OpenCitation } from './types';
 
 type Props = {
@@ -77,6 +78,32 @@ export function CitationChip({
         {n}
       </Link>
     </QuoteTooltip>
+  );
+}
+
+type TextWithChipsProps = {
+  text: string;
+  /** How a stretch of the text renders, e.g. with links. */
+  renderText?: (text: string) => ReactNode;
+  /** The Citation chips that follow the text. */
+  children: ReactNode;
+};
+
+/** Text followed by Citation chips: its last word holds on to them, so a chip never starts a line alone. */
+export function TextWithChips({
+  text,
+  renderText = (value) => value,
+  children,
+}: TextWithChipsProps) {
+  const { lead, tail } = splitTrailingWord(text);
+  return (
+    <>
+      {renderText(lead)}
+      <span className="whitespace-nowrap">
+        {renderText(tail)}
+        {children}
+      </span>
+    </>
   );
 }
 

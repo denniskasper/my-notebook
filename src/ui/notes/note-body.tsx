@@ -1,7 +1,7 @@
 import { Tooltip } from 'radix-ui';
-import { Fragment } from 'react';
+import { Fragment, type ReactNode } from 'react';
 
-import { CitationChip, isOpenCitation, type OpenCitation } from '@/ui/chat';
+import { CitationChip, isOpenCitation, TextWithChips, type OpenCitation } from '@/ui/chat';
 import { cn } from '@/ui/cn';
 
 import { parseNoteMarkdown, type Block, type Inline } from './markdown';
@@ -71,43 +71,70 @@ function BlockView({ block, ...context }: { block: Block } & Props) {
 
 function InlineView({ inline, ...context }: { inline: Inline[] } & Props) {
   const { note, notebookId, existingSourceIds, openCitation } = context;
-  return inline.map((token, index) => {
+  const chip = (token: Extract<Inline, { type: 'citation' }>, key: number) => {
+    const citation = note.citations[token.marker];
+    if (!citation) return null;
+    return (
+      <CitationChip
+        key={key}
+        n={Number(token.marker)}
+        citation={citation}
+        notebookId={notebookId}
+        sourceExists={existingSourceIds.has(citation.sourceId)}
+        open={isOpenCitation(openCitation, citation.sourceId, citation.ordinals)}
+        preserveQuery={{ note: note.id }}
+      />
+    );
+  };
+  const nodes: ReactNode[] = [];
+  for (let index = 0; index < inline.length; index++) {
+    const token = inline[index];
+    if (!token) continue;
     switch (token.type) {
-      case 'text':
-        return <Fragment key={index}>{token.text}</Fragment>;
+      case 'text': {
+        // The chips right after this text stay on one line with its last word.
+        const start = index;
+        const chips: ReactNode[] = [];
+        for (let next = inline[index + 1]; next?.type === 'citation'; next = inline[index + 1]) {
+          index++;
+          chips.push(chip(next, index));
+        }
+        nodes.push(
+          chips.length === 0 ? (
+            <Fragment key={start}>{token.text}</Fragment>
+          ) : (
+            <TextWithChips key={start} text={token.text}>
+              {chips}
+            </TextWithChips>
+          ),
+        );
+        break;
+      }
       case 'strong':
-        return (
+        nodes.push(
           <strong key={index} className="font-semibold text-text">
             <InlineView inline={token.inline} {...context} />
-          </strong>
+          </strong>,
         );
+        break;
       case 'em':
-        return (
+        nodes.push(
           <em key={index}>
             <InlineView inline={token.inline} {...context} />
-          </em>
+          </em>,
         );
+        break;
       case 'code':
-        return (
+        nodes.push(
           <code key={index} className="rounded-[3px] bg-raise px-1 font-ui text-[12.5px]">
             {token.text}
-          </code>
+          </code>,
         );
-      case 'citation': {
-        const citation = note.citations[token.marker];
-        if (!citation) return null;
-        return (
-          <CitationChip
-            key={index}
-            n={Number(token.marker)}
-            citation={citation}
-            notebookId={notebookId}
-            sourceExists={existingSourceIds.has(citation.sourceId)}
-            open={isOpenCitation(openCitation, citation.sourceId, citation.ordinals)}
-            preserveQuery={{ note: note.id }}
-          />
-        );
-      }
+        break;
+      case 'citation':
+        nodes.push(chip(token, index));
+        break;
     }
-  });
+  }
+  return nodes;
 }

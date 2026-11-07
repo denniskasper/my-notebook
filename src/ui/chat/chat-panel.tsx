@@ -210,7 +210,8 @@ export function ChatPanel({
         )}
       </div>
 
-      <div className="shrink-0 px-5 pb-[18px]">
+      {/* The thread fades out above the composer instead of being cut off by it. */}
+      <div className="relative shrink-0 px-5 pb-[18px] before:pointer-events-none before:absolute before:inset-x-0 before:-top-6 before:h-6 before:bg-linear-to-t before:from-bg before:to-transparent">
         {allowanceMessage ? (
           <p
             role="status"

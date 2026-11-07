@@ -112,7 +112,7 @@ function Briefing({ briefing, defaultOpen, ...context }: BriefingProps) {
           <StatusLabel briefing={briefing} />
         </summary>
         {briefing.status !== 'processing' && (
-          <div className="max-w-[62ch] px-6 pt-1 pb-5">
+          <div className="max-w-[62ch] px-6 pt-1 pb-5 motion-safe:animate-[fade-in_250ms_ease-out]">
             <BriefingContent briefing={briefing} {...context} />
           </div>
         )}
