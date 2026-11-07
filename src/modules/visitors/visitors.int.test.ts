@@ -1,8 +1,10 @@
+import { eq } from 'drizzle-orm';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 
-import { closeDb } from '@/platform/db';
+import { closeDb, db } from '@/platform/db';
 import { resetDatabase } from '@/test/database';
 
+import { visitors } from './schema';
 import { createVisitor, findVisitor, resolveVisitor, touchVisitor } from './store';
 
 beforeEach(resetDatabase);
@@ -19,13 +21,23 @@ describe('createVisitor', () => {
 });
 
 describe('touchVisitor', () => {
-  it('moves last_seen_at forward', async () => {
+  it('moves last_seen_at forward once it is over an hour old', async () => {
     const id = await createVisitor({ ipHash: null });
-    const before = await findVisitor(id);
-    await new Promise((resolve) => setTimeout(resolve, 5));
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    await db().update(visitors).set({ lastSeenAt: twoHoursAgo }).where(eq(visitors.id, id));
+
     expect(await touchVisitor(id)).toBe(true);
     const after = await findVisitor(id);
-    expect(after?.lastSeenAt.getTime()).toBeGreaterThan(before?.lastSeenAt.getTime() ?? Infinity);
+    expect(after?.lastSeenAt.getTime()).toBeGreaterThan(Date.now() - 60_000);
+  });
+
+  it('leaves a recent last_seen_at alone, so activity writes at most once an hour', async () => {
+    const id = await createVisitor({ ipHash: null });
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+    await db().update(visitors).set({ lastSeenAt: tenMinutesAgo }).where(eq(visitors.id, id));
+
+    expect(await touchVisitor(id)).toBe(true);
+    expect((await findVisitor(id))?.lastSeenAt).toEqual(tenMinutesAgo);
   });
 
   it('reports a missing Visitor', async () => {

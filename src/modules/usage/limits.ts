@@ -17,6 +17,12 @@ export function spendBlock(spend: Spend, limits: SpendLimits): SpendBlock | null
   return null;
 }
 
+/** How much of a cap is spent, as a whole percent from 0 to 100; a cap of 0 counts as spent. */
+export function spentPercent(spentMicroUsd: number, limitMicroUsd: number): number {
+  if (limitMicroUsd <= 0) return 100;
+  return Math.min(100, Math.round((spentMicroUsd / limitMicroUsd) * 100));
+}
+
 export const RATE_WINDOW_MS = 60 * 60 * 1000;
 
 /**

@@ -9,6 +9,7 @@ export {
 export {
   rateLimitRetryAt,
   spendBlock,
+  spentPercent,
   type Spend,
   type SpendBlock,
   type SpendLimits,
