@@ -40,6 +40,8 @@ export default defineConfig({
             BRIEFING_RATE_LIMIT_PER_HOUR: '3',
             AGENT_CONCURRENCY_LIMIT: '2',
             NEW_VISITORS_PER_IP_PER_DAY: '5',
+            // The URL Source tests serve their pages on this loopback port.
+            URL_FETCH_TEST_LOOPBACK_PORT: '3198',
           },
         },
       },

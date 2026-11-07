@@ -37,6 +37,9 @@ export const envSchema = z
     // Agent runs at the same time, across the whole demo.
     AGENT_CONCURRENCY_LIMIT: count.default(2),
     NEW_VISITORS_PER_IP_PER_DAY: count.default(5),
+    // Tests only: lets the guarded URL fetcher reach 127.0.0.1 on this one port,
+    // where the integration and e2e fixtures serve their pages.
+    URL_FETCH_TEST_LOOPBACK_PORT: z.coerce.number().int().min(1).max(65_535).optional(),
   })
   .transform((env, ctx) => {
     if (env.IP_HASH_SECRET === undefined && env.NODE_ENV === 'production') {
@@ -60,6 +63,14 @@ export const envSchema = z
         code: 'custom',
         path: ['ANTHROPIC_API_KEY'],
         message: 'ANTHROPIC_API_KEY is required when LLM_MODE=real',
+      });
+      return z.NEVER;
+    }
+    if (env.URL_FETCH_TEST_LOOPBACK_PORT !== undefined && env.LLM_MODE === 'real') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['URL_FETCH_TEST_LOOPBACK_PORT'],
+        message: 'URL_FETCH_TEST_LOOPBACK_PORT is for tests and not allowed with LLM_MODE=real',
       });
       return z.NEVER;
     }

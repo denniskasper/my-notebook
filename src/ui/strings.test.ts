@@ -58,6 +58,10 @@ describe('errorMessage', () => {
     expect(errorMessage('not_found')).toBe('Dieses Notebook gibt es nicht mehr.');
   });
 
+  it('tells the Visitor a blocked web address is not allowed', () => {
+    expect(errorMessage('url_not_allowed')).toBe('Diese Adresse ist nicht erlaubt.');
+  });
+
   it('fills placeholders from values', () => {
     expect(errorMessage('invalid_title', { max: 120 })).toBe(
       'Der Titel muss zwischen 1 und 120 Zeichen lang sein.',
