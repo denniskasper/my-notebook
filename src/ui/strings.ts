@@ -40,6 +40,7 @@ export const strings = {
   },
   sidebar: {
     label: 'Notebooks',
+    versionLink: 'Diesen Stand auf GitHub ansehen',
     heading: 'Notebooks',
     newNotebook: 'Neues Notebook',
     addSource: 'Quelle hinzufügen',

@@ -13,6 +13,7 @@ import {
   SOURCE_TITLE_MAX_LENGTH,
   type Source,
 } from '@/modules/sources';
+import { buildInfo } from '@/platform/build';
 import { env } from '@/platform/env';
 import { ChatPanel, type MessageView, type OpenCitation } from '@/ui/chat';
 import { NotesPanel, type NoteView } from '@/ui/notes';
@@ -189,6 +190,7 @@ export default async function NotebookPage({ params, searchParams }: Props) {
           activeNotebookId={notebook.id}
           createNotebook={createNotebookAction}
           footer={meter}
+          build={buildInfo()}
           activeNotebookSources={
             <>
               <SourceList

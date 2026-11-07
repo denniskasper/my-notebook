@@ -2,9 +2,12 @@ import { BookOpen, ChevronDown, Plus } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
+import type { BuildInfo } from '@/platform/build';
 import { SubmitButton } from '@/ui/components/submit-button';
 import { cn } from '@/ui/cn';
 import { strings } from '@/ui/strings';
+
+import { VersionLabel } from './version-label';
 
 export type SidebarNotebook = { id: string; title: string };
 
@@ -16,6 +19,8 @@ type Props = {
   activeNotebookSources?: ReactNode;
   /** Pinned below the list (the Kontingent meter). */
   footer?: ReactNode;
+  /** The running version and commit, shown at the very bottom. */
+  build: BuildInfo;
 };
 
 /** Notebook list; the open Notebook unfolds to show its Sources. */
@@ -25,6 +30,7 @@ export function Sidebar({
   createNotebook,
   activeNotebookSources,
   footer,
+  build,
 }: Props) {
   return (
     <>
@@ -84,6 +90,7 @@ export function Sidebar({
         </form>
       </nav>
       {footer}
+      <VersionLabel build={build} />
     </>
   );
 }
