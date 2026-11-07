@@ -6,7 +6,7 @@ export {
   type ChatEvent,
 } from './answer';
 export { citationSchema, toCitation, type Citation, type PromptDocument } from './citations';
-export type { MessagePart, TextPart } from './parts';
+export { messagePartsSchema, type MessagePart, type TextPart } from './parts';
 export { trimHistory, type HistoryTurn } from './prompt';
 export {
   clearChat,

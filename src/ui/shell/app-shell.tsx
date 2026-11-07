@@ -17,7 +17,13 @@ type Props = {
   /** An app-wide notice above all three panels (the Demo budget banner). */
   banner?: ReactNode;
   /** The Source / Studio / Notes drawer (only inside a Notebook). */
-  drawer?: { reader: ReactNode; notes: ReactNode; sourceCount: number; focus: DrawerFocus };
+  drawer?: {
+    reader: ReactNode;
+    studio: ReactNode;
+    notes: ReactNode;
+    sourceCount: number;
+    focus: DrawerFocus;
+  };
 };
 
 /**
@@ -106,6 +112,7 @@ export function AppShell({ sidebar, header, children, drawer, banner }: Props) {
           >
             <Drawer
               reader={drawer.reader}
+              studio={drawer.studio}
               notes={drawer.notes}
               sourceCount={drawer.sourceCount}
               focus={drawer.focus}

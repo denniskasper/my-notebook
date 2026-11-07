@@ -14,9 +14,11 @@ import {
   type Source,
 } from '@/modules/sources';
 import { buildInfo } from '@/platform/build';
+import { listStudioOutputs, type StudioOutput } from '@/modules/studio';
 import { env } from '@/platform/env';
 import { ChatPanel, type MessageView, type OpenCitation } from '@/ui/chat';
 import { NotesPanel, type NoteView } from '@/ui/notes';
+import { StudioPanel, type BriefingView } from '@/ui/studio';
 import { AppShell, EmptyConversation, NotebookHeader, Sidebar, type DrawerFocus } from '@/ui/shell';
 import {
   AddSource,
@@ -36,6 +38,7 @@ import {
   deleteNoteAction,
   deleteNotebookAction,
   deleteSourceAction,
+  generateBriefingAction,
   renameNotebookAction,
   retrySourceAction,
   saveAnswerAsNoteAction,
@@ -98,6 +101,16 @@ function toNoteView(note: Note): NoteView {
   };
 }
 
+function toBriefingView(output: StudioOutput): BriefingView {
+  return {
+    id: output.id,
+    status: output.status,
+    errorCode: output.errorCode === null ? null : toErrorCode(output.errorCode),
+    content: output.content.map(({ text, citations }) => ({ text, citations })),
+    createdAt: output.createdAt,
+  };
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { notebook } = await loadNotebook(params);
   return { title: `${notebook.title} – ${strings.app.name}` };
@@ -109,10 +122,11 @@ export default async function NotebookPage({ params, searchParams }: Props) {
   const query = await searchParams;
   const readerParams = parseReaderParams(query);
   const openNoteId = parseNoteParam(query);
-  const [sources, messages, notes, opened] = await Promise.all([
+  const [sources, messages, notes, studioOutputs, opened] = await Promise.all([
     listSources(visitorId, notebook.id),
     listMessages(visitorId, notebook.id),
     listNotes(visitorId, notebook.id),
+    listStudioOutputs(visitorId, notebook.id),
     readerParams.sourceId
       ? getSourceWithPassages(visitorId, notebook.id, readerParams.sourceId)
       : Promise.resolve(null),
@@ -141,6 +155,10 @@ export default async function NotebookPage({ params, searchParams }: Props) {
   } else if (openNoteId) {
     drawerFocus = { key: `note:${openNoteId}`, tab: 'notes' };
   }
+  const spendBlock = spend.blocked && {
+    code: spend.blocked.reason,
+    retryAt: spend.blocked.retryAt?.toISOString() ?? null,
+  };
   const chatSourceSummary =
     sources.length === 0
       ? strings.notebook.noSources
@@ -166,6 +184,19 @@ export default async function NotebookPage({ params, searchParams }: Props) {
       banner={banner}
       drawer={{
         reader,
+        studio: (
+          <StudioPanel
+            notebookId={notebook.id}
+            briefings={studioOutputs
+              .filter((output) => output.kind === 'briefing')
+              .map(toBriefingView)}
+            activeSourceCount={active}
+            existingSourceIds={sourceIds}
+            openCitation={openCitation}
+            blocked={spendBlock}
+            generateBriefing={generateBriefingAction}
+          />
+        ),
         notes: (
           <NotesPanel
             notebookId={notebook.id}
@@ -243,12 +274,7 @@ export default async function NotebookPage({ params, searchParams }: Props) {
           existingSourceIds={sourceIds}
           openCitation={openCitation}
           canSubmitQuestion={active > 0}
-          blocked={
-            spend.blocked && {
-              code: spend.blocked.reason,
-              retryAt: spend.blocked.retryAt?.toISOString() ?? null,
-            }
-          }
+          blocked={spendBlock}
           sourceSummary={chatSourceSummary}
           questionMaxLength={QUESTION_MAX_LENGTH}
           clearChat={clearChatAction}
