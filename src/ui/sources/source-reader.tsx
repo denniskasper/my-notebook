@@ -24,6 +24,7 @@ export function SourceReader({ source, passages, highlight, closeHref, limits }:
   const scrollArea = useRef<HTMLDivElement>(null);
   const highlighted = new Set(highlight);
   const highlightKey = highlight.join(',');
+  const pageCount = new Set(passages.flatMap((passage) => passage.page ?? [])).size;
 
   useEffect(() => {
     const first = scrollArea.current?.querySelector('[data-highlighted]');
@@ -45,6 +46,7 @@ export function SourceReader({ source, passages, highlight, closeHref, limits }:
           </h2>
           <p className="mt-1 text-[11.5px] text-faint">
             {plural(passages.length, strings.reader.passageCount)}
+            {pageCount > 0 && <> {plural(pageCount, strings.reader.pageCount)}</>}
             {source.tokenCount !== null && (
               <>, {format(strings.reader.tokenCount, { count: source.tokenCount })}</>
             )}
@@ -63,14 +65,16 @@ export function SourceReader({ source, passages, highlight, closeHref, limits }:
 
       <div ref={scrollArea} className="scroll-area flex-1 pt-4 pb-16">
         <ol className="max-w-[62ch]">
-          {passages.map((passage) => {
+          {passages.map((passage, index) => {
             const isHighlighted = highlighted.has(passage.ordinal);
+            const startsPage = passage.page !== null && passage.page !== passages[index - 1]?.page;
             return (
               <li
                 key={`${passage.ordinal}-${isHighlighted}`}
                 data-ordinal={passage.ordinal}
                 className="grid grid-cols-[44px_1fr] pr-6"
               >
+                {startsPage && <PageMarker page={passage.page ?? 0} first={index === 0} />}
                 {/* Ordinals count from 1 for readers; Citations store them from 0. */}
                 <span
                   aria-hidden
@@ -98,6 +102,22 @@ export function SourceReader({ source, passages, highlight, closeHref, limits }:
         </ol>
       </div>
     </section>
+  );
+}
+
+/** Where a PDF page begins: the page number on a hairline, so Citations can be found in the original. */
+function PageMarker({ page, first }: { page: number; first: boolean }) {
+  return (
+    <p
+      data-page={page}
+      className={cn(
+        'col-start-2 flex items-center gap-2.5 pb-1.5 pl-3 text-[11px] text-faint tabular-nums',
+        first ? 'pt-0' : 'pt-5',
+      )}
+    >
+      {format(strings.reader.page, { n: page })}
+      <span aria-hidden className="h-px flex-1 bg-line-soft" />
+    </p>
   );
 }
 

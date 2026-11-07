@@ -1,4 +1,4 @@
-import { ArrowUp, FileText, Globe } from 'lucide-react';
+import { ArrowUp, Globe } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 import { strings } from '@/ui/strings';
@@ -7,7 +7,7 @@ const KIND_BUTTON =
   'flex h-9 items-center gap-2 rounded-md border border-line px-3 text-text transition-colors hover:border-muted hover:bg-hover';
 
 /** The conversation centre of a Notebook without Sources: an invitation to add one. */
-export function EmptyConversation({ addTextSource }: { addTextSource: ReactNode }) {
+export function EmptyConversation({ addSource }: { addSource: ReactNode }) {
   const { conversation } = strings;
   return (
     <>
@@ -20,12 +20,8 @@ export function EmptyConversation({ addTextSource }: { addTextSource: ReactNode 
             {conversation.emptyBody}
           </p>
           <div className="mt-7 flex flex-wrap gap-2">
-            {addTextSource}
-            {/* Inert until the PDF and web page slices. */}
-            <button type="button" className={KIND_BUTTON}>
-              <FileText size={14} aria-hidden className="text-muted" />
-              {strings.sources.kinds.pdf}
-            </button>
+            {addSource}
+            {/* Inert until the web page slice. */}
             <button type="button" className={KIND_BUTTON}>
               <Globe size={14} aria-hidden className="text-muted" />
               {strings.sources.kinds.url}

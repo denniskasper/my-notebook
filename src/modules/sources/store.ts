@@ -7,7 +7,8 @@ import { llm } from '@/platform/llm';
 import { logger } from '@/platform/logging';
 
 import { sourceTextSchema, sourceTitleSchema, type SourceErrorCode } from './input';
-import { splitIntoPassages } from './passages';
+import { splitIntoPassages, type PassageDraft } from './passages';
+import { extractPdfPassages, titleFromFileName, type PdfError } from './pdf';
 import { passages, sources } from './schema';
 import { fitsTokenCap } from './token-cap';
 
@@ -71,11 +72,37 @@ export async function addTextSource(
   const drafts = splitIntoPassages(sourceTextSchema.parse(input.text));
   if (!(await ownsNotebook(visitorId, notebookId))) return null;
 
+  return insertSource({ notebookId, kind: 'text', title }, drafts);
+}
+
+export type AddPdfResult =
+  { ok: true; source: Source } | { ok: false; error: PdfError | 'not_found' };
+
+/**
+ * Adds an uploaded PDF as a `processing` Source: its text layer is extracted
+ * into page-aware Passages right away and the file itself is discarded.
+ * A PDF without text (a scan), an unreadable or oversized file is rejected.
+ */
+export async function addPdfSource(
+  visitorId: string,
+  notebookId: string,
+  input: { fileName: string; data: Uint8Array },
+): Promise<AddPdfResult> {
+  if (!(await ownsNotebook(visitorId, notebookId))) return { ok: false, error: 'not_found' };
+  const extracted = await extractPdfPassages(input.data);
+  if (!extracted.ok) return extracted;
+  const title = sourceTitleSchema.parse(titleFromFileName(input.fileName));
+  const source = await insertSource({ notebookId, kind: 'pdf', title }, extracted.passages);
+  return { ok: true, source };
+}
+
+/** Inserts the Source and its Passages together, so a retry always has its Passages. */
+async function insertSource(
+  values: typeof sources.$inferInsert,
+  drafts: (PassageDraft & { page?: number })[],
+): Promise<Source> {
   return db().transaction(async (tx) => {
-    const [source] = await tx
-      .insert(sources)
-      .values({ notebookId, kind: 'text', title })
-      .returning();
+    const [source] = await tx.insert(sources).values(values).returning();
     if (!source) throw new Error('Source insert returned no row');
     await tx.insert(passages).values(drafts.map((draft) => ({ sourceId: source.id, ...draft })));
     return source;
