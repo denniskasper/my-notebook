@@ -9,6 +9,7 @@ export { citationSchema, toCitation, type Citation, type PromptDocument } from '
 export {
   messagePartsSchema,
   messageText,
+  textPartsSchema,
   type MessagePart,
   type StepPart,
   type TextPart,

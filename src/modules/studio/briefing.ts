@@ -1,6 +1,6 @@
 import { and, eq, gt, sql } from 'drizzle-orm';
 
-import { messagePartsSchema, toCitation, type PromptDocument, type TextPart } from '@/modules/chat';
+import { textPartsSchema, toCitation, type PromptDocument, type TextPart } from '@/modules/chat';
 import { getNotebook } from '@/modules/notebooks';
 import { listPromptSources } from '@/modules/sources';
 import { checkUsage, estimateOutputTokens, recordUsage, type UsageBlock } from '@/modules/usage';
@@ -180,7 +180,7 @@ async function streamBriefing(request: ChatRequest, documents: PromptDocument[])
 /** Stores the outcome, unless the output left `processing` (the sweep's `interrupted` stands) or is gone. */
 async function finish(outputId: string, result: Result): Promise<void> {
   // Validated on write as well as on read: a bad shape fails loudly here, not silently later.
-  const content = messagePartsSchema.parse(
+  const content = textPartsSchema.parse(
     result.parts.filter((part) => part.text !== '' || part.citations.length > 0),
   );
   const [row] = await db()

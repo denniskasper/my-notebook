@@ -21,6 +21,9 @@ export const stepPartSchema = z.object({
   status: z.enum(['running', 'done', 'failed']),
 });
 
+/** Text-only content, such as a Briefing's. */
+export const textPartsSchema = z.array(textPartSchema);
+
 export const messagePartsSchema = z.array(
   z.discriminatedUnion('type', [textPartSchema, stepPartSchema]),
 );

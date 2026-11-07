@@ -1,6 +1,6 @@
 import { and, desc, eq, lt } from 'drizzle-orm';
 
-import { messagePartsSchema, type MessagePart } from '@/modules/chat';
+import { textPartsSchema, type TextPart } from '@/modules/chat';
 import { getNotebook } from '@/modules/notebooks';
 import { db } from '@/platform/db';
 import { logger } from '@/platform/logging';
@@ -13,12 +13,12 @@ export const PROCESSING_STALE_AFTER_MS = 5 * 60_000;
 type StudioOutputRow = typeof studioOutputs.$inferSelect;
 
 export type StudioOutput = Omit<StudioOutputRow, 'content' | 'notebookId'> & {
-  content: MessagePart[];
+  content: TextPart[];
 };
 
 /** Content is jsonb: a row that doesn't parse shows as empty instead of breaking the page. */
 export function toStudioOutput(row: StudioOutputRow): StudioOutput {
-  const parsed = messagePartsSchema.safeParse(row.content);
+  const parsed = textPartsSchema.safeParse(row.content);
   if (!parsed.success) {
     logger().error({ event: 'studio.invalid_content', outputId: row.id, err: parsed.error });
   }
