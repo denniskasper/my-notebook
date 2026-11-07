@@ -189,6 +189,7 @@ async function runInSlot(
     maxNotes: limits.maxNotes,
     onStep: (step) => void onStep(step),
     onNoteCreated: (noteId) => void enqueue(() => emit({ type: 'note_created', noteId })),
+    onMarkersDropped: (dropped) => log.warn({ event: 'agent.note_markers_dropped', dropped }),
   });
   const parser = createMarkerParser(toolbox.passage);
   const show = (events: MarkerEvent[]) =>

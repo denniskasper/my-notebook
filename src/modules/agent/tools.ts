@@ -1,8 +1,8 @@
 import { z } from 'zod';
 
-import type { Citation } from '@/modules/chat';
+import type { Citation, StepPart } from '@/modules/chat';
 import { createNote, noteTitleSchema, type NoteCitations } from '@/modules/notes';
-import { getSourceWithPassages, listSources } from '@/modules/sources';
+import { getSourceWithPassages, listPromptSources, listSources } from '@/modules/sources';
 import type { AgentTool, AgentToolResult } from '@/platform/llm';
 
 import { createMarkerParser, type ReadPassage } from './markers';
@@ -10,22 +10,19 @@ import { createMarkerParser, type ReadPassage } from './markers';
 /** Which Notebook the tools act on, on whose behalf. */
 export type AgentScope = { visitorId: string; notebookId: string };
 
-export const STEP_STATUSES = ['running', 'done', 'failed'] as const;
-
-/** One Step as the timeline shows it: the tool, its key argument and how it went. */
-export type StepUpdate = {
-  /** Stable for the Step's lifetime; later updates replace earlier ones. */
-  id: string;
-  tool: string;
-  argument: string | null;
-  status: (typeof STEP_STATUSES)[number];
-};
+/**
+ * One Step as the timeline shows it: the tool, its key argument and how it went.
+ * `id` is stable for the Step's lifetime; later updates replace earlier ones.
+ */
+export type StepUpdate = Omit<StepPart, 'type'>;
 
 export type NotebookToolOptions = {
   /** Called when a Step starts and when it ends. */
   onStep?: (step: StepUpdate) => void;
   /** Called after a Note was written, with its id. */
   onNoteCreated?: (noteId: string) => void;
+  /** Called when a Note body had Passage markers that were not valid and were left out. */
+  onMarkersDropped?: (dropped: number) => void;
   /** Notes one run may write (Budget guard: 2). */
   maxNotes?: number;
   /** How much Passage text one `read_source` call returns before it truncates. */
@@ -103,21 +100,16 @@ export function createNotebookTools(
     run: asStep('list_sources', async () => {
       const sources = await listSources(scope.visitorId, scope.notebookId);
       const enabled = sources.filter((source) => source.enabled);
-      const passageCounts = await Promise.all(
-        enabled.map(async (source) =>
-          source.status === 'ready'
-            ? ((await getSourceWithPassages(scope.visitorId, scope.notebookId, source.id))?.passages
-                .length ?? 0)
-            : 0,
-        ),
-      );
+      // One query for all ready Sources' Passages, rather than one per Source.
+      const ready = await listPromptSources(scope.visitorId, scope.notebookId);
+      const passageCounts = new Map(ready.map((source) => [source.id, source.passages.length]));
       return {
-        sources: enabled.map((source, index) => ({
+        sources: enabled.map((source) => ({
           id: source.id,
           title: source.title,
           kind: source.kind,
           status: source.status,
-          passages: passageCounts[index] ?? 0,
+          passages: passageCounts.get(source.id) ?? 0,
           tokens: source.tokenCount ?? 0,
         })),
       };
@@ -213,16 +205,19 @@ export function createNotebookTools(
       if (notesWritten >= maxNotes) {
         throw new ToolRefusal(`Note limit reached: at most ${maxNotes} Notes per run.`);
       }
-      const { body, citations } = toNoteBody(raw.body, (id) => read.get(id));
+      // Reserve the slot before awaiting: the SDK may run several create_note calls at once.
+      notesWritten += 1;
+      const { body, citations, dropped } = toNoteBody(raw.body, (id) => read.get(id));
+      if (dropped > 0) options.onMarkersDropped?.(dropped);
       const note = await createNote(scope.visitorId, scope.notebookId, {
         title: title.data,
         body,
         citations,
-      }).catch(() => {
-        throw new ToolRefusal('The Note could not be saved (too long?).');
-      });
-      if (!note) throw new ToolRefusal('This notebook is gone.');
-      notesWritten += 1;
+      }).catch(() => null);
+      if (!note) {
+        notesWritten -= 1;
+        throw new ToolRefusal('The Note could not be saved (too long, or the notebook is gone).');
+      }
       options.onNoteCreated?.(note.id);
       return { noteId: note.id, title: note.title, citations: Object.keys(note.citations).length };
     }),
@@ -238,7 +233,7 @@ export function createNotebookTools(
 function toNoteBody(
   text: string,
   resolve: (id: string) => ReadPassage | undefined,
-): { body: string; citations: NoteCitations } {
+): { body: string; citations: NoteCitations; dropped: number } {
   const parser = createMarkerParser(resolve);
   let body = '';
   const citations: Record<string, Citation> = {};
@@ -251,5 +246,5 @@ function toNoteBody(
       body += `[${n}]`;
     }
   }
-  return { body, citations };
+  return { body, citations, dropped: parser.dropped() };
 }

@@ -82,7 +82,8 @@ export function ChatPanel({
   const agentMode = mode === 'agent';
   // The Agent may also work on a Notebook whose Sources are all switched off (it says so).
   const composerOpen = (agentMode || canSubmitQuestion) && blocked === null;
-  const maxLength = agentMode ? taskMaxLength : questionMaxLength;
+  const maxLengthFor = (of: Mode) => (of === 'agent' ? taskMaxLength : questionMaxLength);
+  const maxLength = maxLengthFor(mode);
   // The Demo budget has its app-wide banner; only the Visitor's own allowance is told here.
   const allowanceMessage = blocked?.code === 'daily_allowance' ? allowanceText(blocked) : null;
 
@@ -102,14 +103,14 @@ export function ChatPanel({
   const sources = new Set(existingSourceIds);
   const emptyBody = canSubmitQuestion ? strings.chat.emptyBody : strings.chat.noActiveSources;
 
-  async function streamQuestion(question: string, mode: Mode) {
+  async function streamQuestion(question: string, runMode: Mode) {
     const stop = new AbortController();
     stopRef.current = stop;
     let started = false;
     setError(null);
     setDraft('');
     setPending({
-      mode,
+      mode: runMode,
       question,
       userMessageId: null,
       assistantMessageId: null,
@@ -125,7 +126,7 @@ export function ChatPanel({
       setError({
         code,
         values: {
-          max: mode === 'agent' ? taskMaxLength : questionMaxLength,
+          max: maxLengthFor(runMode),
           ...(retryAt && retryValues(retryAt, new Date())),
         },
       });
@@ -133,10 +134,10 @@ export function ChatPanel({
     };
 
     try {
-      const response = await fetch(`/api/notebooks/${notebookId}/${mode}`, {
+      const response = await fetch(`/api/notebooks/${notebookId}/${runMode}`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(mode === 'agent' ? { task: question } : { question }),
+        body: JSON.stringify(runMode === 'agent' ? { task: question } : { question }),
         signal: stop.signal,
       });
       if (!response.ok || !response.body)

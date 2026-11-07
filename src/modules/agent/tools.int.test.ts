@@ -158,7 +158,11 @@ describe('create_note', () => {
   it('writes a Note whose valid Passage markers become Citations', async () => {
     const sourceId = await addReady('Heizungsgesetz', 'Erster Absatz.\n\nZweiter Absatz.');
     const created: string[] = [];
-    const { call, steps } = toolbox({ onNoteCreated: (id) => created.push(id) });
+    const dropped: number[] = [];
+    const { call, steps } = toolbox({
+      onNoteCreated: (id) => created.push(id),
+      onMarkersDropped: (count) => dropped.push(count),
+    });
     await call('read_source', { sourceId });
 
     const result = await call('create_note', {
@@ -177,6 +181,7 @@ describe('create_note', () => {
       },
     });
     expect(created).toEqual([note?.id]);
+    expect(dropped).toEqual([1]);
     expect(steps.at(-1)).toMatchObject({
       tool: 'create_note',
       argument: 'Vergleich',
@@ -192,6 +197,15 @@ describe('create_note', () => {
       isError: true,
       text: expect.stringContaining('2'),
     });
+    expect(await listNotes(visitor, notebook)).toHaveLength(2);
+  });
+
+  it('writes at most two Notes even when the calls run at once', async () => {
+    const { call } = toolbox();
+    const results = await Promise.all(
+      ['Eins', 'Zwei', 'Drei'].map((title) => call('create_note', { title, body: 'a' })),
+    );
+    expect(results.filter((result) => result.isError)).toHaveLength(1);
     expect(await listNotes(visitor, notebook)).toHaveLength(2);
   });
 
