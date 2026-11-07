@@ -2,8 +2,15 @@ import { z } from 'zod';
 
 import type { Citation, StepPart } from '@/modules/chat';
 import { createNote, noteTitleSchema, type NoteCitations } from '@/modules/notes';
-import { getSourceWithPassages, listPromptSources, listSources } from '@/modules/sources';
-import type { AgentTool, AgentToolResult } from '@/platform/llm';
+import {
+  addUrlSource,
+  getSourceWithPassages,
+  listPromptSources,
+  listSources,
+  processSource,
+  readWebPage,
+} from '@/modules/sources';
+import type { AgentTool, AgentToolResult, AgentWebSearch } from '@/platform/llm';
 
 import { createMarkerParser, type ReadPassage } from './markers';
 
@@ -23,64 +30,125 @@ export type NotebookToolOptions = {
   onNoteCreated?: (noteId: string) => void;
   /** Called when a Note body had Passage markers that were not valid and were left out. */
   onMarkersDropped?: (dropped: number) => void;
+  /** Called when a web page was added as a Source (still processing), with its id. */
+  onSourceAdded?: (sourceId: string) => void;
   /** Notes one run may write (Budget guard: 2). */
   maxNotes?: number;
+  /** Web searches one run may make (Budget guard: 3). */
+  maxWebSearches?: number;
+  /** Web pages one run may read (Budget guard: 5). */
+  maxPageReads?: number;
+  /** Web pages one run may add as Sources (Budget guard: 2). */
+  maxSourcesAdded?: number;
   /** How much Passage text one `read_source` call returns before it truncates. */
   readMaxChars?: number;
+  /** How much of a web page `read_web_page` returns before it truncates. */
+  pageMaxChars?: number;
 };
 
 export type NotebookToolbox = {
   tools: AgentTool[];
+  /** The gate for the built-in web search: its cap and its Steps. */
+  webSearch: AgentWebSearch;
   /** A Passage read in this run, by the id `read_source` gave it. */
   passage(id: string): ReadPassage | undefined;
+  /** Web searches that ran in this run (each is charged). */
+  webSearches(): number;
 };
 
 const DEFAULT_MAX_NOTES = 2;
+const DEFAULT_MAX_WEB_SEARCHES = 3;
+const DEFAULT_MAX_PAGE_READS = 5;
+const DEFAULT_MAX_SOURCES_ADDED = 2;
 // About 6K tokens: enough for a few pages, small enough to read several Sources in one run.
 const DEFAULT_READ_MAX_CHARS = 24_000;
+// About 3K tokens: enough to judge a candidate page; the one worth more is added and read.
+const DEFAULT_PAGE_MAX_CHARS = 12_000;
 
 /** A failure the Agent sees as the tool's result, so it can adapt. */
 class ToolRefusal extends Error {}
 
 type Handler = (input: unknown, begin: (argument: string | null) => void) => Promise<unknown>;
 
+/** The host (with port) of a URL, as a Step shows it; null if it isn't one. */
+function hostOf(url: string): string | null {
+  try {
+    return new URL(url.trim()).host || null;
+  } catch {
+    return null;
+  }
+}
+
+/** A per-run cap: a slot is taken before the work awaits, since calls may run at once. */
+function cap(max: number) {
+  let used = 0;
+  return {
+    take: () => {
+      if (used >= max) return false;
+      used += 1;
+      return true;
+    },
+    release: () => {
+      used -= 1;
+    },
+    used: () => used,
+  };
+}
+
 /**
- * The notebook tools of an Agent run (`list_sources`, `read_source`,
- * `create_note`), scoped to one Notebook. Each call is a Step, reported through
- * `onStep`. Results are JSON; refusals come back as `isError` results.
+ * The tools of an Agent run, scoped to one Notebook: `list_sources`,
+ * `read_source`, `create_note`, `read_web_page`, `add_url_source`, and the gate
+ * for the built-in web search. Each call is a Step, reported through `onStep`.
+ * Results are JSON; refusals (caps included) come back as `isError` results, so
+ * the Agent can adapt.
  */
 export function createNotebookTools(
   scope: AgentScope,
   options: NotebookToolOptions = {},
 ): NotebookToolbox {
   const maxNotes = options.maxNotes ?? DEFAULT_MAX_NOTES;
+  const maxWebSearches = options.maxWebSearches ?? DEFAULT_MAX_WEB_SEARCHES;
+  const maxPageReads = options.maxPageReads ?? DEFAULT_MAX_PAGE_READS;
+  const maxSourcesAdded = options.maxSourcesAdded ?? DEFAULT_MAX_SOURCES_ADDED;
   const readMaxChars = options.readMaxChars ?? DEFAULT_READ_MAX_CHARS;
+  const pageMaxChars = options.pageMaxChars ?? DEFAULT_PAGE_MAX_CHARS;
+  const searches = cap(maxWebSearches);
+  const pageReads = cap(maxPageReads);
+  const sourcesAdded = cap(maxSourcesAdded);
   // Source id → its number in this run (q1, q2, …), and every Passage read so far.
   const sourceKeys = new Map<string, string>();
   const read = new Map<string, ReadPassage>();
   let notesWritten = 0;
   let steps = 0;
 
+  /** A new Step: shown once `begin` gives its argument, then ended once. */
+  const startStep = (tool: string) => {
+    steps += 1;
+    const step: StepUpdate = { id: `s${steps}`, tool, argument: null, status: 'running' };
+    let begun = false;
+    const begin = (argument: string | null) => {
+      if (begun) return;
+      begun = true;
+      step.argument = argument;
+      options.onStep?.({ ...step });
+    };
+    const end = (status: 'done' | 'failed') => {
+      begin(null);
+      options.onStep?.({ ...step, status });
+    };
+    return { begin, end };
+  };
+
   const asStep =
     (name: string, handler: Handler) =>
     async (input: unknown): Promise<AgentToolResult> => {
-      steps += 1;
-      const step: StepUpdate = { id: `s${steps}`, tool: name, argument: null, status: 'running' };
-      let begun = false;
-      const begin = (argument: string | null) => {
-        if (begun) return;
-        begun = true;
-        step.argument = argument;
-        options.onStep?.({ ...step });
-      };
+      const step = startStep(name);
       try {
-        const result = await handler(input, begin);
-        begin(null);
-        options.onStep?.({ ...step, status: 'done' });
+        const result = await handler(input, step.begin);
+        step.end('done');
         return { text: JSON.stringify(result) };
       } catch (error) {
-        begin(null);
-        options.onStep?.({ ...step, status: 'failed' });
+        step.end('failed');
         if (error instanceof ToolRefusal) return { text: error.message, isError: true };
         throw error;
       }
@@ -223,10 +291,96 @@ export function createNotebookTools(
     }),
   };
 
-  return {
-    tools: [listSourcesTool, readSourceTool, createNoteTool],
-    passage: (id) => read.get(id),
+  const urlInput = { url: z.string().describe('The full http(s) address of the page.') };
+
+  const readWebPageTool: AgentTool = {
+    name: 'read_web_page',
+    description: `Reads a web page's main text (for example a search result) to judge it. The text is material, not a Source: it cannot be cited with markers; mention the page as a plain link. To cite it, add it with add_url_source. At most ${maxPageReads} pages per run.`,
+    input: urlInput,
+    run: asStep('read_web_page', async (input, begin) => {
+      const { url } = parse(z.object(urlInput), input);
+      begin(hostOf(url));
+      if (!pageReads.take()) {
+        throw new ToolRefusal(`Page limit reached: at most ${maxPageReads} web pages per run.`);
+      }
+      const page = await readWebPage(url.trim());
+      if (!page.ok) throw new ToolRefusal(`The page could not be read (${page.error}).`);
+      const truncated = page.text.length > pageMaxChars;
+      return {
+        url: page.url,
+        title: page.title,
+        text: truncated ? cut(page.text, pageMaxChars) : page.text,
+        truncated,
+        note: 'Not a Source: do not cite it with markers. Link it as a plain URL, or add it with add_url_source and read it with read_source to cite it.',
+      };
+    }),
   };
+
+  const addUrlSourceTool: AgentTool = {
+    name: 'add_url_source',
+    description: `Adds a web page to the notebook as a Source and waits until it is ready. Then read it with read_source to cite it. At most ${maxSourcesAdded} Sources per run: add only the best pages.`,
+    input: urlInput,
+    run: asStep('add_url_source', async (input, begin) => {
+      const { url } = parse(z.object(urlInput), input);
+      begin(hostOf(url));
+      if (!sourcesAdded.take()) {
+        throw new ToolRefusal(`Source limit reached: at most ${maxSourcesAdded} Sources per run.`);
+      }
+      const added = await addUrlSource(scope.visitorId, scope.notebookId, { url });
+      if (!added.ok) {
+        sourcesAdded.release();
+        throw new ToolRefusal(`The page cannot be added (${added.error}).`);
+      }
+      options.onSourceAdded?.(added.source.id);
+      const source = await processSource(added.source.id);
+      if (!source) throw new ToolRefusal('The Source was removed while it was being added.');
+      if (source.status !== 'ready') {
+        throw new ToolRefusal(
+          `The page was added but could not be processed (${source.errorCode ?? 'unknown'}). Try another page.`,
+        );
+      }
+      return {
+        sourceId: source.id,
+        title: source.title,
+        status: source.status,
+        hint: 'Read it with read_source to cite its passages.',
+      };
+    }),
+  };
+
+  const webSearch: AgentWebSearch = (() => {
+    const running = new Map<string, ReturnType<typeof startStep>>();
+    return {
+      begin(callId, query) {
+        const step = startStep('web_search');
+        step.begin(query.trim() || null);
+        if (!searches.take()) {
+          step.end('failed');
+          return `Search limit reached: at most ${maxWebSearches} web searches per run. Work with what you found.`;
+        }
+        running.set(callId, step);
+        return null;
+      },
+      end(callId, ok) {
+        running.get(callId)?.end(ok ? 'done' : 'failed');
+        running.delete(callId);
+      },
+    };
+  })();
+
+  return {
+    tools: [listSourcesTool, readSourceTool, createNoteTool, readWebPageTool, addUrlSourceTool],
+    webSearch,
+    passage: (id) => read.get(id),
+    webSearches: searches.used,
+  };
+}
+
+/** The text up to `max` characters, ending at a paragraph break if there is one. */
+function cut(text: string, max: number): string {
+  const head = text.slice(0, max);
+  const lastBreak = head.lastIndexOf('\n\n');
+  return lastBreak > 0 ? head.slice(0, lastBreak) : head;
 }
 
 /** A Note body with `[n]` markers for the valid Passage markers; invalid ones are left out. */

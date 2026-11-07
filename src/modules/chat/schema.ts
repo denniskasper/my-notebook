@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { index, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { index, integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 
 import { notebooks } from '@/modules/notebooks/schema';
 
@@ -25,6 +25,8 @@ export const messages = pgTable(
       .default(sql`'[]'::jsonb`),
     status: text('status', { enum: MESSAGE_STATUSES }).notNull(),
     errorCode: text('error_code'),
+    // What an Agent run was charged, in micro-dollars (the folded timeline shows it).
+    costMicroUsd: integer('cost_micro_usd'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [

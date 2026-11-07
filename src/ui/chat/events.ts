@@ -57,11 +57,15 @@ export const chatEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('step'), part, step: stepViewSchema }),
   // The Agent wrote a Note: the page reloads so it shows up.
   z.object({ type: z.literal('note_created'), noteId: z.uuid() }),
+  // The Agent added a web page as a Source: the page reloads so the sidebar shows it.
+  z.object({ type: z.literal('source_added'), sourceId: z.uuid() }),
   z.object({
     type: z.literal('done'),
     status: z.enum(['complete', 'stopped']),
     // Which cap ended an Agent run, if one did.
     reason: z.enum(AGENT_STOP_REASONS).optional(),
+    // What an Agent run was charged, in micro-dollars.
+    costMicroUsd: z.number().int().nonnegative().optional(),
   }),
   z.object({
     type: z.literal('error'),

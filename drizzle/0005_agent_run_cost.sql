@@ -1,0 +1,1 @@
+ALTER TABLE "messages" ADD COLUMN "cost_micro_usd" integer;

@@ -1,9 +1,11 @@
-import { afterAll, beforeEach, describe, expect, it } from 'vitest';
+import { createServer, type Server } from 'node:http';
+
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { listMessages, messageText } from '@/modules/chat';
 import { createNotebook } from '@/modules/notebooks';
 import { listNotes } from '@/modules/notes';
-import { addTextSource, processSource } from '@/modules/sources';
+import { addTextSource, listSources, processSource } from '@/modules/sources';
 import { recordUsage, spendSince, withAgentSlot } from '@/modules/usage';
 import { createVisitor } from '@/modules/visitors';
 import { closeDb } from '@/platform/db';
@@ -23,7 +25,34 @@ beforeEach(async () => {
   otherVisitor = await createVisitor({ ipHash: null });
   notebook = (await createNotebook(visitor, 'Wärmewende')).id;
 });
-afterAll(closeDb);
+
+// The fake Agent's web search finds these two pages on the loopback fixture port.
+const PORT = Number(process.env.URL_FETCH_TEST_LOOPBACK_PORT);
+const PAGES: Record<string, string> = {
+  '/ki-verordnung/bundesnetzagentur': `<!doctype html><html><head><meta charset="utf-8">
+<title>KI-Aufsicht: Zuständigkeiten stehen fest</title></head><body><article>
+<p>Die Bundesnetzagentur wird zentrale Marktüberwachungsbehörde für KI-Systeme.</p>
+<p>Für einzelne Bereiche bleiben die bisherigen Fachaufsichten zuständig.</p>
+</article></body></html>`,
+  '/ki-verordnung/einordnung': `<!doctype html><html><head><meta charset="utf-8">
+<title>Was die KI-Verordnung bringt</title></head><body><article>
+<p>Ein Überblick über Fristen und Pflichten der Verordnung für Unternehmen.</p>
+</article></body></html>`,
+};
+let server: Server;
+beforeAll(async () => {
+  server = createServer((request, response) => {
+    const page = PAGES[request.url ?? ''];
+    response.writeHead(page ? 200 : 404, { 'content-type': 'text/html; charset=utf-8' });
+    response.end(page ?? '');
+  });
+  await new Promise<void>((resolve) => server.listen(PORT, '127.0.0.1', resolve));
+});
+afterAll(async () => {
+  server.closeAllConnections();
+  await new Promise((resolve) => server.close(resolve));
+  await closeDb();
+});
 
 async function addReady(title: string, text: string): Promise<string> {
   const source = await addTextSource(visitor, notebook, { title, text });
@@ -67,7 +96,7 @@ describe('runAgentTask', () => {
     const events = await run('Vergleiche Quelle A und B und schreib die Widersprüche als Notiz.');
 
     expect(events[0]).toMatchObject({ type: 'started' });
-    expect(events.at(-1)).toEqual({ type: 'done', status: 'complete' });
+    expect(events.at(-1)).toMatchObject({ type: 'done', status: 'complete' });
     const finished = events
       .flatMap((e) => (e.type === 'step' && e.step.status !== 'running' ? [e.step] : []))
       .map(({ tool, argument, status }) => ({ tool, argument, status }));
@@ -114,7 +143,8 @@ describe('runAgentTask', () => {
       },
     });
 
-    expect(events.at(-1)).toEqual({ type: 'done', status: 'stopped' });
+    expect(events.at(-1)).toMatchObject({ type: 'done', status: 'stopped' });
+    expect(events.at(-1)).not.toHaveProperty('reason');
     const answer = (await listMessages(visitor, notebook))[1];
     expect(answer?.status).toBe('stopped');
     expect(answer?.errorCode).toBeNull();
@@ -128,18 +158,65 @@ describe('runAgentTask', () => {
   it('ends a run that hits a cap like Stop, with the cap as its reason', async () => {
     await addReady('Quelle A', 'A beginnt.');
 
-    expect((await run('Los.', { limits: { maxTurns: 1 } })).at(-1)).toEqual({
+    expect((await run('Los.', { limits: { maxTurns: 1 } })).at(-1)).toMatchObject({
       type: 'done',
       status: 'stopped',
       reason: 'agent_max_turns',
     });
     expect((await listMessages(visitor, notebook))[1]?.errorCode).toBe('agent_max_turns');
 
-    expect((await run('Los.', { limits: { timeoutMs: 1 } })).at(-1)).toEqual({
+    expect((await run('Los.', { limits: { timeoutMs: 1 } })).at(-1)).toMatchObject({
       type: 'done',
       status: 'stopped',
       reason: 'agent_timeout',
     });
+  });
+
+  it('researches the web, adds the best page as a Source and cites it in the Note', async () => {
+    await addReady('Quelle A', 'A beginnt.');
+
+    const events = await run(
+      'Recherchiere den aktuellen Stand. Füge eine offizielle Quelle hinzu und halte die Zuständigkeiten in einer Notiz fest.',
+    );
+
+    const finished = events
+      .flatMap((e) => (e.type === 'step' && e.step.status !== 'running' ? [e.step] : []))
+      .map(({ tool, status }) => ({ tool, status }));
+    expect(finished).toEqual([
+      { tool: 'list_sources', status: 'done' },
+      { tool: 'read_source', status: 'done' },
+      { tool: 'web_search', status: 'done' },
+      { tool: 'read_web_page', status: 'done' },
+      { tool: 'read_web_page', status: 'done' },
+      { tool: 'add_url_source', status: 'done' },
+      { tool: 'read_source', status: 'done' },
+      { tool: 'create_note', status: 'done' },
+    ]);
+
+    const added = (await listSources(visitor, notebook)).find((source) => source.kind === 'url');
+    expect(added).toMatchObject({
+      status: 'ready',
+      title: 'KI-Aufsicht: Zuständigkeiten stehen fest',
+    });
+    expect(events).toContainEqual({ type: 'source_added', sourceId: added?.id });
+    const [note] = await listNotes(visitor, notebook);
+    expect(Object.values(note?.citations ?? {}).map((c) => c.sourceId)).toContain(added?.id);
+
+    // The page read but not added is a plain link, never a Citation.
+    const citations = events.flatMap((e) => (e.type === 'citation' ? [e.citation] : []));
+    expect(citations.map((c) => c.sourceId)).toContain(added?.id);
+    expect(text(events)).toContain(`http://127.0.0.1:${PORT}/ki-verordnung/einordnung`);
+  });
+
+  it('charges a cent per web search and stores the run’s cost on the answer', async () => {
+    const events = await run('Recherchiere im Web, was es Neues gibt.');
+
+    const done = events.at(-1);
+    expect(done).toMatchObject({ type: 'done', status: 'complete' });
+    const cost = done?.type === 'done' ? done.costMicroUsd : undefined;
+    expect(cost).toBeGreaterThan(10_000);
+    expect(await spendSince({ since: start, visitorId: visitor })).toBe(cost);
+    expect((await listMessages(visitor, notebook))[1]?.costMicroUsd).toBe(cost);
   });
 
   it('gives the Agent the last turns of the conversation as text', async () => {

@@ -9,6 +9,7 @@ import {
   plural,
   retryValues,
   stepLabel,
+  stepSummary,
   strings,
   toErrorCode,
 } from './strings';
@@ -131,11 +132,35 @@ describe('formatUsd', () => {
   });
 });
 
+describe('stepSummary', () => {
+  it('counts the Steps and adds what the run cost', () => {
+    expect(stepSummary(7, 41_250)).toMatch(/^7 Schritte · 0,04\s\$$/);
+    expect(stepSummary(1, 10_000)).toMatch(/^1 Schritt · 0,01\s\$$/);
+  });
+
+  it('shows a cost below a cent as less than a cent', () => {
+    expect(stepSummary(3, 1_200)).toMatch(/^3 Schritte · < 0,01\s\$$/);
+  });
+
+  it('shows only the count when the cost is unknown', () => {
+    expect(stepSummary(3, null)).toBe('3 Schritte');
+  });
+});
+
 describe('stepLabel', () => {
   it('names a Step by its tool and key argument', () => {
     expect(stepLabel('read_source', 'Heizungsgesetz')).toBe('Liest Quelle „Heizungsgesetz“');
     expect(stepLabel('create_note', null)).toBe('Schreibt eine Notiz');
     expect(stepLabel('list_sources', null)).toBe('Prüft die Quellen');
+    expect(stepLabel('web_search', 'KI-Verordnung Stand')).toBe(
+      'Sucht im Web: ‚KI-Verordnung Stand‘',
+    );
+    expect(stepLabel('read_web_page', 'bundesnetzagentur.de')).toBe(
+      'Liest Webseite bundesnetzagentur.de',
+    );
+    expect(stepLabel('add_url_source', 'bundesnetzagentur.de')).toBe(
+      'Fügt bundesnetzagentur.de als Quelle hinzu',
+    );
   });
 
   it('falls back to a neutral label for a tool it does not know', () => {

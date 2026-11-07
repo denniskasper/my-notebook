@@ -6,15 +6,31 @@ import {
   createSdkMcpServer,
   query,
   tool,
+  type HookCallbackMatcher,
+  type HookEvent,
+  type HookInput,
+  type HookJSONOutput,
   type SDKMessage,
   type SDKResultMessage,
 } from '@anthropic-ai/claude-agent-sdk';
+import { z } from 'zod';
 
 import { MODELS } from './models';
-import type { AgentOutcome, AgentRequest, AgentStreamEvent, LlmUsage } from './types';
+import type {
+  AgentOutcome,
+  AgentRequest,
+  AgentStreamEvent,
+  AgentWebSearch,
+  LlmUsage,
+} from './types';
 
 // The in-process MCP server's name; its tools reach the model as `mcp__notebook__<tool>`.
 const SERVER = 'notebook';
+// The built-in tools the Agent gets: web search (on Anthropic's side) and Skills.
+const WEB_SEARCH = 'WebSearch';
+const SKILL = 'Skill';
+
+const webSearchInputSchema = z.object({ query: z.string() }).loose();
 
 const OUTCOMES: Record<SDKResultMessage['subtype'], AgentOutcome> = {
   success: 'complete',
@@ -42,9 +58,10 @@ function toUsage(usage: ApiUsage): LlmUsage {
 }
 
 /**
- * The Agent SDK adapter (ADR 0001): a fresh `query()` per Agent run, with no
- * built-in tools, only the notebook tools on an in-process MCP server, no
- * settings or Skills from disk, no saved session, and a throwaway config dir.
+ * The Agent SDK adapter (ADR 0001): a fresh `query()` per Agent run. Its only
+ * built-in tools are web search (behind the request's gate) and Skills (only
+ * the request's plugin Skills); the notebook tools run on an in-process MCP server.
+ * No settings from disk, no saved session, and a throwaway config dir.
  */
 export async function* runAgentWithSdk(
   apiKey: string,
@@ -76,10 +93,17 @@ export async function* runAgentWithSdk(
     options: {
       model: MODELS.agent,
       systemPrompt: request.system,
-      tools: [],
+      tools: request.webSearch ? [WEB_SEARCH, SKILL] : [SKILL],
       mcpServers: { [SERVER]: server },
       strictMcpConfig: true,
-      allowedTools: request.tools.map((t) => `mcp__${SERVER}__${t.name}`),
+      allowedTools: [
+        ...request.tools.map((t) => `mcp__${SERVER}__${t.name}`),
+        ...(request.webSearch ? [WEB_SEARCH] : []),
+      ],
+      // Only the shipped plugin's Skills, not Claude Code's bundled ones.
+      plugins: (request.plugins ?? []).map((path) => ({ type: 'local' as const, path })),
+      skills: request.skills ?? [],
+      ...(request.webSearch && { hooks: webSearchHooks(request.webSearch) }),
       // Anything not allowed above is refused, never asked about.
       permissionMode: 'dontAsk',
       settingSources: [],
@@ -131,6 +155,40 @@ export async function* runAgentWithSdk(
     run.close();
     await rm(configDir, { recursive: true, force: true });
   }
+}
+
+/**
+ * Hooks around the built-in web search: the gate may refuse a search before
+ * it runs (the Agent sees the reason as the tool's error) and hears how it went.
+ */
+function webSearchHooks(gate: AgentWebSearch): Partial<Record<HookEvent, HookCallbackMatcher[]>> {
+  const proceed: HookJSONOutput = { continue: true };
+  const on = (hook: (input: HookInput) => HookJSONOutput): HookCallbackMatcher[] => [
+    { matcher: WEB_SEARCH, hooks: [async (input) => hook(input)] },
+  ];
+  return {
+    PreToolUse: on((input) => {
+      if (input.hook_event_name !== 'PreToolUse') return proceed;
+      const parsed = webSearchInputSchema.safeParse(input.tool_input);
+      const refused = gate.begin(input.tool_use_id, parsed.success ? parsed.data.query : '');
+      if (refused === null) return proceed;
+      return {
+        hookSpecificOutput: {
+          hookEventName: 'PreToolUse',
+          permissionDecision: 'deny',
+          permissionDecisionReason: refused,
+        },
+      };
+    }),
+    PostToolUse: on((input) => {
+      if (input.hook_event_name === 'PostToolUse') gate.end(input.tool_use_id, true);
+      return proceed;
+    }),
+    PostToolUseFailure: on((input) => {
+      if (input.hook_event_name === 'PostToolUseFailure') gate.end(input.tool_use_id, false);
+      return proceed;
+    }),
+  };
 }
 
 type SdkEvent =

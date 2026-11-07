@@ -70,6 +70,9 @@ describe('parseEnv', () => {
       BRIEFING_RATE_LIMIT_PER_HOUR: 3,
       AGENT_CONCURRENCY_LIMIT: 2,
       NEW_VISITORS_PER_IP_PER_DAY: 5,
+      AGENT_MAX_WEB_SEARCHES: 3,
+      AGENT_MAX_PAGE_READS: 5,
+      AGENT_MAX_SOURCES_ADDED: 2,
     });
   });
 

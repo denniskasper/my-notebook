@@ -7,6 +7,7 @@ import { errorMessage, strings } from '@/ui/strings';
 import { CitationChip, isOpenCitation } from './citation-chip';
 import type { StepView } from './events';
 import { SaveAsNoteButton, type SaveAsNote } from './save-as-note';
+import { splitLinks } from './links';
 import { StepTimeline } from './step-timeline';
 import type { MessageView, OpenCitation, TextPartView } from './types';
 
@@ -92,7 +93,9 @@ function Answer({
             {streaming ? strings.agent.working : strings.agent.name}
           </p>
         )}
-        {agent && <StepTimeline steps={steps} live={streaming} />}
+        {agent && (
+          <StepTimeline steps={steps} live={streaming} costMicroUsd={message.costMicroUsd} />
+        )}
         {showWriting && (
           <p role="status" className="font-ui text-[12px] text-faint">
             {strings.chat.writing}
@@ -103,7 +106,7 @@ function Answer({
           <p className="whitespace-pre-wrap">
             {texts.map((part, index) => (
               <span key={index}>
-                {part.text}
+                {agent ? <TextWithLinks text={part.text} /> : part.text}
                 {part.citations.map((citation, citationIndex) => {
                   const n = (firstNumber[index] ?? 1) + citationIndex;
                   return (
@@ -137,6 +140,28 @@ function Answer({
         )}
       </article>
     </Tooltip.Provider>
+  );
+}
+
+/**
+ * Agent text with the web pages it read but did not add as plain links: quiet
+ * and underlined in the text's own colour, so they never pass for a Citation.
+ */
+function TextWithLinks({ text }: { text: string }) {
+  return splitLinks(text).map((segment, index) =>
+    segment.type === 'text' ? (
+      segment.text
+    ) : (
+      <a
+        key={index}
+        href={segment.href}
+        target="_blank"
+        rel="noopener noreferrer nofollow"
+        className="break-all text-text underline decoration-line underline-offset-[3px] transition-colors hover:decoration-muted focus-visible:rounded-[2px] focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-muted"
+      >
+        {segment.href}
+      </a>
+    ),
   );
 }
 

@@ -1,9 +1,10 @@
 // Run inside the production image (CI smoke check): resolves the Claude Code
 // binary the way the Agent SDK does and starts it. Fails if the standalone
-// output lost the SDK's optional, per-platform binary package.
+// output lost the SDK's optional, per-platform binary package or the Agent's
+// plugin with its Skill.
 //   docker run --rm -i --entrypoint node <image> --input-type=module - < docker/check-agent-binary.mjs
 import { execFileSync } from 'node:child_process';
-import { readdirSync, realpathSync } from 'node:fs';
+import { existsSync, readdirSync, realpathSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
 
@@ -22,3 +23,9 @@ const binary = createRequire(sdk).resolve(
 );
 const version = execFileSync(binary, ['--version']).toString().trim();
 console.log(`Agent SDK binary: ${binary} (${version})`);
+
+const plugin = join(process.cwd(), 'src', 'modules', 'agent', 'agent-plugin');
+for (const file of ['.claude-plugin/plugin.json', 'skills/quellen-recherche/SKILL.md']) {
+  if (!existsSync(join(plugin, file))) throw new Error(`Agent plugin file missing: ${file}`);
+}
+console.log(`Agent plugin: ${plugin}`);

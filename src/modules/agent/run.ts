@@ -11,12 +11,20 @@ import {
   type TextPart,
 } from '@/modules/chat';
 import { getNotebook } from '@/modules/notebooks';
-import { checkUsage, recordUsage, withAgentSlot, type UsageBlock } from '@/modules/usage';
+import {
+  checkUsage,
+  costMicroUsd,
+  WEB_SEARCH_MICRO_USD,
+  recordUsage,
+  withAgentSlot,
+  type UsageBlock,
+} from '@/modules/usage';
 import { env } from '@/platform/env';
 import { llm, type AgentOutcome, type LlmUsage } from '@/platform/llm';
 import { logger, type Logger } from '@/platform/logging';
 
 import { createMarkerParser, type MarkerEvent } from './markers';
+import { AGENT_PLUGIN_DIR, AGENT_SKILLS } from './plugin';
 import { AGENT_SYSTEM_PROMPT, buildAgentPrompt } from './prompt';
 import { createNotebookTools, type StepUpdate } from './tools';
 
@@ -39,7 +47,15 @@ export type AgentEvent =
   /** A Step started or ended; it replaces the part at `part`. */
   | { type: 'step'; part: number; step: StepPart }
   | { type: 'note_created'; noteId: string }
-  | { type: 'done'; status: 'complete' | 'stopped'; reason?: AgentStopReason }
+  /** The Agent added a web page as a Source (still processing). */
+  | { type: 'source_added'; sourceId: string }
+  /** `costMicroUsd`: what the run was charged. */
+  | {
+      type: 'done';
+      status: 'complete' | 'stopped';
+      reason?: AgentStopReason;
+      costMicroUsd: number;
+    }
   /** `retryAt` (ISO): when a Budget guard refusal ends, if it ends on its own. */
   | { type: 'error'; error: AgentErrorCode; retryAt?: string };
 
@@ -49,6 +65,9 @@ export type AgentLimits = {
   maxBudgetUsd: number;
   timeoutMs: number;
   maxNotes: number;
+  maxWebSearches: number;
+  maxPageReads: number;
+  maxSourcesAdded: number;
 };
 
 type Options = {
@@ -65,6 +84,9 @@ function defaultLimits(): AgentLimits {
     maxBudgetUsd: config.AGENT_MAX_BUDGET_USD,
     timeoutMs: config.AGENT_TIMEOUT_SECONDS * 1_000,
     maxNotes: config.AGENT_MAX_NOTES,
+    maxWebSearches: config.AGENT_MAX_WEB_SEARCHES,
+    maxPageReads: config.AGENT_MAX_PAGE_READS,
+    maxSourcesAdded: config.AGENT_MAX_SOURCES_ADDED,
   };
 }
 
@@ -131,8 +153,9 @@ type Run = {
   status: 'complete' | 'stopped' | 'failed';
   reason: AgentStopReason | null;
   parts: MessagePart[];
-  /** What the SDK reported at the end, or the model calls seen before an abort. */
+  /** What the SDK reported at the end (web searches included), if it got there. */
   costUsd: number | null;
+  /** All model calls, as the SDK reported them at the end or as seen before an abort. */
   usage: LlmUsage | null;
 };
 
@@ -187,8 +210,12 @@ async function runInSlot(
 
   const toolbox = createNotebookTools(scope, {
     maxNotes: limits.maxNotes,
+    maxWebSearches: limits.maxWebSearches,
+    maxPageReads: limits.maxPageReads,
+    maxSourcesAdded: limits.maxSourcesAdded,
     onStep: (step) => void onStep(step),
     onNoteCreated: (noteId) => void enqueue(() => emit({ type: 'note_created', noteId })),
+    onSourceAdded: (sourceId) => void enqueue(() => emit({ type: 'source_added', sourceId })),
     onMarkersDropped: (dropped) => log.warn({ event: 'agent.note_markers_dropped', dropped }),
   });
   const parser = createMarkerParser(toolbox.passage);
@@ -206,6 +233,9 @@ async function runInSlot(
         system: AGENT_SYSTEM_PROMPT,
         prompt: buildAgentPrompt(history, scope.task),
         tools: toolbox.tools,
+        webSearch: toolbox.webSearch,
+        plugins: [AGENT_PLUGIN_DIR],
+        skills: AGENT_SKILLS,
         maxTurns: limits.maxTurns,
         maxBudgetUsd: limits.maxBudgetUsd,
       },
@@ -258,20 +288,41 @@ async function runInSlot(
     part.type === 'step' && part.status === 'running' ? { ...part, status: 'failed' } : part,
   );
   run.usage ??= sumUsage(calls);
-  await recordRunUsage(scope, run, log);
+  const cost = runCost(run, toolbox.webSearches());
+  await recordRunUsage(scope, run.usage, cost, log);
   const stored = await finishAnswer(scope.messageId, {
     status: run.status,
     parts: run.parts,
     errorCode: run.status === 'failed' ? 'llm_failed' : run.reason,
+    costMicroUsd: cost,
   });
   log.info({
     event: stored ? `agent.${run.status}` : 'agent.finish_skipped',
     reason: run.reason,
-    costUsd: run.costUsd,
+    costMicroUsd: cost,
+    webSearches: toolbox.webSearches(),
   });
 
   if (run.status === 'failed') await emit({ type: 'error', error: 'llm_failed' });
-  else await emit({ type: 'done', status: run.status, ...(run.reason && { reason: run.reason }) });
+  else {
+    await emit({
+      type: 'done',
+      status: run.status,
+      ...(run.reason && { reason: run.reason }),
+      costMicroUsd: cost,
+    });
+  }
+}
+
+/**
+ * What the run is charged, in micro-dollars: the SDK's reported cost, which
+ * includes web searches, or for a run cut short its model calls so far plus a
+ * cent per search that ran.
+ */
+function runCost(run: Run, webSearches: number): number {
+  if (run.costUsd !== null) return Math.ceil(run.costUsd * 1_000_000);
+  if (!run.usage) return 0;
+  return costMicroUsd(run.usage.model, run.usage) + webSearches * WEB_SEARCH_MICRO_USD;
 }
 
 /**
@@ -318,18 +369,19 @@ function sumUsage(calls: readonly LlmUsage[]): LlmUsage | null {
 
 async function recordRunUsage(
   scope: { visitorId: string; notebookId: string },
-  run: Run,
+  usage: LlmUsage | null,
+  cost: number,
   log: Logger,
 ): Promise<void> {
   // A run that never reached the model was not billed.
-  if (!run.usage) return;
+  if (!usage) return;
   try {
     await recordUsage({
       visitorId: scope.visitorId,
       notebookId: scope.notebookId,
       feature: 'agent',
-      ...run.usage,
-      ...(run.costUsd !== null && { costMicroUsd: Math.ceil(run.costUsd * 1_000_000) }),
+      ...usage,
+      costMicroUsd: cost,
     });
   } catch (error) {
     log.error({ event: 'usage.record_failed', err: error });

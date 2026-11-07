@@ -28,6 +28,7 @@ function toChatMessage(row: MessageRow): ChatMessage {
     parts: parsed.success ? parsed.data : [],
     status: row.status,
     errorCode: row.errorCode,
+    costMicroUsd: row.costMicroUsd,
     createdAt: row.createdAt,
   };
 }
@@ -184,6 +185,8 @@ export async function finishAnswer(
     status: 'complete' | 'stopped' | 'failed';
     parts: MessagePart[];
     errorCode: string | null;
+    /** What the run was charged (Agent runs). */
+    costMicroUsd?: number | null;
   },
 ): Promise<boolean> {
   const parts = outcome.parts.filter(
@@ -191,7 +194,12 @@ export async function finishAnswer(
   );
   const [row] = await db()
     .update(messages)
-    .set({ parts, status: outcome.status, errorCode: outcome.errorCode })
+    .set({
+      parts,
+      status: outcome.status,
+      errorCode: outcome.errorCode,
+      costMicroUsd: outcome.costMicroUsd ?? null,
+    })
     .where(and(eq(messages.id, messageId), eq(messages.status, 'streaming')))
     .returning({ id: messages.id });
   return row !== undefined;
