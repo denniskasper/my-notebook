@@ -9,6 +9,10 @@ This app is built mostly by AI coding agents, with a human steering the work.
 - **T3 Code is the ADE (agentic development environment).** All agent sessions run in T3 Code.
 - **A remote T3 Code server does most of the work.** It runs 24/7, so agents keep working on tickets while the laptop is closed. The laptop and phone only connect to it to steer, review, and approve.
 
+## Infrastructure
+
+Every merge to `main` is tested, scanned, built into an image and deployed to Dokploy on a self-hosted server over a private tailnet; an unhealthy release rolls back on its own. [docs/infrastructure.md](docs/infrastructure.md) has the system map, the deploy and rollback flow, and where each secret lives.
+
 ## Local development
 
 Requires Node 24, pnpm (via corepack) and Docker.
