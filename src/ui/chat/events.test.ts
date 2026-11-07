@@ -28,7 +28,9 @@ describe('chatEventSchema', () => {
         },
       },
       { type: 'note_created', noteId: id },
+      { type: 'source_added', sourceId: id },
       { type: 'done', status: 'stopped', reason: 'agent_timeout' },
+      { type: 'done', status: 'complete', costMicroUsd: 41_250 },
       { type: 'error', error: 'agent_busy' },
       { type: 'error', error: 'llm_failed' },
       { type: 'error', error: 'daily_allowance', retryAt: '2026-11-07T23:00:00.000Z' },
@@ -49,6 +51,8 @@ describe('chatEventSchema', () => {
       },
       { type: 'done', status: 'streaming' },
       { type: 'done', status: 'stopped', reason: 'müde' },
+      { type: 'done', status: 'complete', costMicroUsd: -1 },
+      { type: 'source_added', sourceId: 'neu' },
       {
         type: 'step',
         part: 0,

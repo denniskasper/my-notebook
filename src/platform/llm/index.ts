@@ -10,6 +10,7 @@ export type {
   AgentStreamEvent,
   AgentTool,
   AgentToolResult,
+  AgentWebSearch,
   ChatDocument,
   ChatRequest,
   ChatStreamEvent,

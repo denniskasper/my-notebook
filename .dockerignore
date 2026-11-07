@@ -16,6 +16,8 @@ docs
 e2e
 playwright.config.ts
 *.md
+# The Agent's Skill is Markdown and ships in the image.
+!src/modules/agent/agent-plugin/skills/*/SKILL.md
 docker-compose.yml
 next-env.d.ts
 *.tsbuildinfo

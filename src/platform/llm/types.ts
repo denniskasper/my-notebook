@@ -57,11 +57,27 @@ export type AgentTool = {
   run(input: unknown): Promise<AgentToolResult>;
 };
 
+/**
+ * The gate around the built-in web search, which runs on Anthropic's side and
+ * so has no handler of its own: the adapter asks before each search and
+ * reports how it went.
+ */
+export type AgentWebSearch = {
+  /** Before a search; null lets it run, a message refuses it (the Agent sees the message). */
+  begin(callId: string, query: string): string | null;
+  /** After a search that `begin` let run. */
+  end(callId: string, ok: boolean): void;
+};
+
 export type AgentRequest = {
   system: string;
   /** The task, with the last few conversation turns as text before it. */
   prompt: string;
   tools: AgentTool[];
+  /** Enables the built-in web search, behind this gate. */
+  webSearch?: AgentWebSearch;
+  /** Directories of local plugins whose Skills the Agent may use. */
+  plugins?: string[];
   maxTurns: number;
   maxBudgetUsd: number;
 };

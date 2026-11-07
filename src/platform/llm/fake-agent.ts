@@ -2,6 +2,8 @@ import { setTimeout as sleep } from 'node:timers/promises';
 
 import { z } from 'zod';
 
+import { env } from '@/platform/env';
+
 import { MODELS } from './models';
 import type { AgentRequest, AgentStreamEvent, AgentTool, LlmUsage } from './types';
 
@@ -15,6 +17,11 @@ const STEP_DELAY_WORDS = 12;
 const MAX_READ_SOURCES = 2;
 // A marker for a Passage nobody read: the server must drop it.
 const INVENTED_MARKER = '[[p:q99-0]]';
+// Anthropic's price per web search, in dollars.
+const WEB_SEARCH_USD = 0.01;
+// A task the fake researches the web for (when web search is on).
+const RESEARCH_TASK = /recherch|\bweb\b|quelle\w* hinzu/i;
+const QUERY_MAX_CHARS = 80;
 
 const tokensOf = (chars: number) => Math.ceil(chars / CHARS_PER_TOKEN);
 
@@ -23,6 +30,28 @@ const listedSchema = z.object({
   sources: z.array(z.object({ id: z.string(), title: z.string() })),
 });
 const readSchema = z.object({ passages: z.array(z.object({ id: z.string(), text: z.string() })) });
+const pageSchema = z.object({ url: z.string() });
+const addedSchema = z.object({ sourceId: z.string(), title: z.string() });
+
+/**
+ * What the fake web search finds: two pages on the fixture server when tests
+ * provide one (an official one first), else two placeholder addresses.
+ */
+function searchResults(): { url: string; title: string }[] {
+  const port = env().URL_FETCH_TEST_LOOPBACK_PORT;
+  const origin = port === undefined ? 'https://example.com' : `http://127.0.0.1:${port}`;
+  return [
+    { url: `${origin}/ki-verordnung/bundesnetzagentur`, title: 'Pressemitteilung' },
+    { url: `${origin}/ki-verordnung/einordnung`, title: 'Einordnung' },
+  ];
+}
+
+/** The search query: the task's first sentence (the prompt ends with the task). */
+function queryOf(prompt: string): string {
+  const task = prompt.split('\n\n').at(-1) ?? prompt;
+  const sentence = /^[^.?!]*/.exec(task.trim())?.[0] ?? task;
+  return sentence.slice(0, QUERY_MAX_CHARS).trim();
+}
 
 function parseJson<T>(schema: z.ZodType<T>, text: string): T | null {
   try {
@@ -37,8 +66,11 @@ class TurnLimit extends Error {}
 
 /**
  * The scripted Agent: it drives the same tool handlers as the real one. It
- * lists the Sources, reads the first two, writes a comparison Note if the task
- * mentions one („Notiz“), and answers with Passage markers, one of them invented.
+ * lists the Sources and reads the first two. For a research task (with web
+ * search on) it searches once, reads both pages found, adds the first one that
+ * could be read as a Source and reads it. It writes a comparison Note if the
+ * task mentions one („Notiz“), and answers with Passage markers (one of them
+ * invented) and the pages it read but did not add as plain links.
  */
 export async function* runFakeAgent(
   request: AgentRequest,
@@ -87,7 +119,24 @@ export async function* runFakeAgent(
     return result.isError ? null : result.text;
   };
 
+  let searches = 0;
+  const search = async (query: string) => {
+    const gate = request.webSearch;
+    if (!gate) return null;
+    if (turns >= request.maxTurns) throw new TurnLimit();
+    turns += 1;
+    const callId = `search-${turns}`;
+    if (gate.begin(callId, query) !== null) return null;
+    await wait(STEP_DELAY_WORDS);
+    const results = searchResults();
+    gate.end(callId, true);
+    searches += 1;
+    readChars += JSON.stringify(results).length;
+    return results;
+  };
+
   const sources: { title: string; passageIds: string[] }[] = [];
+  const links: string[] = [];
   let noteWritten = false;
   try {
     yield charge(turnUsage());
@@ -100,6 +149,35 @@ export async function* runFakeAgent(
       );
       sources.push({ title: source.title, passageIds: read?.passages.map((p) => p.id) ?? [] });
     }
+    if (request.webSearch && RESEARCH_TASK.test(request.prompt)) {
+      yield charge(turnUsage());
+      const found = await search(queryOf(request.prompt));
+      const pages: string[] = [];
+      for (const result of found ?? []) {
+        yield charge(turnUsage());
+        const page = parseJson(
+          pageSchema,
+          (await call('read_web_page', { url: result.url })) ?? '',
+        );
+        if (page) pages.push(page.url);
+      }
+      const [best, ...others] = pages;
+      links.push(...others);
+      if (best) {
+        yield charge(turnUsage());
+        const added = parseJson(addedSchema, (await call('add_url_source', { url: best })) ?? '');
+        if (added) {
+          yield charge(turnUsage());
+          const read = parseJson(
+            readSchema,
+            (await call('read_source', { sourceId: added.sourceId })) ?? '',
+          );
+          sources.push({ title: added.title, passageIds: read?.passages.map((p) => p.id) ?? [] });
+        } else {
+          links.unshift(best);
+        }
+      }
+    }
     if (/notiz/i.test(request.prompt) && sources.length > 0) {
       yield charge(turnUsage());
       noteWritten = (await call('create_note', noteFor(sources))) !== null;
@@ -107,24 +185,37 @@ export async function* runFakeAgent(
     if (turns >= request.maxTurns) throw new TurnLimit();
   } catch (error) {
     if (!(error instanceof TurnLimit)) throw error;
-    yield { type: 'finished', outcome: 'max_turns', costUsd: costOf(total), usage: total };
+    yield {
+      type: 'finished',
+      outcome: 'max_turns',
+      costUsd: costOf(total, searches),
+      usage: total,
+    };
     return;
   }
 
   await wait();
   yield { type: 'text_block' };
-  for (const chunk of answerFor(sources, noteWritten).match(/\S+\s*|\s+/g) ?? []) {
+  for (const chunk of answerFor(sources, noteWritten, links).match(/\S+\s*|\s+/g) ?? []) {
     await wait();
     written += chunk.length;
     yield { type: 'text', text: chunk };
   }
   signal.throwIfAborted();
   yield charge({ type: 'usage', usage: usage() });
-  yield { type: 'finished', outcome: 'complete', costUsd: costOf(total), usage: total };
+  yield {
+    type: 'finished',
+    outcome: 'complete',
+    costUsd: costOf(total, searches),
+    usage: total,
+  };
 }
 
-const costOf = (usage: LlmUsage) =>
-  usage.inputTokens * INPUT_USD_PER_TOKEN + usage.outputTokens * OUTPUT_USD_PER_TOKEN;
+// Like the SDK's reported cost, it includes the web searches.
+const costOf = (usage: LlmUsage, searches: number) =>
+  usage.inputTokens * INPUT_USD_PER_TOKEN +
+  usage.outputTokens * OUTPUT_USD_PER_TOKEN +
+  searches * WEB_SEARCH_USD;
 
 const marker = (id: string | undefined) => (id ? ` [[p:${id}]]` : '');
 
@@ -136,7 +227,11 @@ function noteFor(sources: { title: string; passageIds: string[] }[]) {
   return { title: 'Vergleich der Quellen', body: `## Gegenüberstellung\n\n${lines.join('\n')}` };
 }
 
-function answerFor(sources: { title: string; passageIds: string[] }[], noteWritten: boolean) {
+function answerFor(
+  sources: { title: string; passageIds: string[] }[],
+  noteWritten: boolean,
+  links: string[],
+) {
   if (sources.length === 0) return 'In diesem Notebook finde ich keine aktiven Quellen.';
   const sentences = sources.map((source) => {
     const [first, second] = source.passageIds;
@@ -146,5 +241,6 @@ function answerFor(sources: { title: string; passageIds: string[] }[], noteWritt
   });
   sentences.push(`Eine weitere Stelle ließ sich nicht belegen ${INVENTED_MARKER}.`);
   if (noteWritten) sentences.push('Die Gegenüberstellung steht als Notiz bereit.');
+  if (links.length > 0) sentences.push(`Außerdem gelesen: ${links.join(', ')}`);
   return sentences.join(' ');
 }

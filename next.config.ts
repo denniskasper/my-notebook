@@ -7,12 +7,15 @@ const nextConfig: NextConfig = {
   // finds its Claude Code binary relative to its own files, so it must stay a real package.
   serverExternalPackages: ['pino', 'pg', '@anthropic-ai/claude-agent-sdk'],
   // The SDK resolves that binary (an optional, per-platform package) at runtime, which file
-  // tracing can't see: copy it into the standalone output explicitly.
+  // tracing can't see: copy it, and the Agent's plugin, into the standalone output explicitly.
   outputFileTracingIncludes: {
     // Route keys are globs, so `*` stands for the dynamic segment (brackets would be a class).
     '/api/notebooks/*/agent': [
       './node_modules/.pnpm/@anthropic-ai+claude-agent-sdk-linux*/node_modules/@anthropic-ai/*/**/*',
       './node_modules/.pnpm/@anthropic-ai+claude-agent-sdk@*/node_modules/@anthropic-ai/claude-agent-sdk-linux*',
+      // The Agent's plugin (its Skill) is read from disk by the SDK, not imported.
+      './src/modules/agent/agent-plugin/.claude-plugin/plugin.json',
+      './src/modules/agent/agent-plugin/skills/**/*',
     ],
   },
   // Pasted Source text can fill the whole token cap (~80K tokens), well past the 1 MB default.

@@ -36,6 +36,13 @@
       "when": 1794055373482,
       "tag": "0004_studio_outputs",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1794069544006,
+      "tag": "0005_agent_run_cost",
+      "breakpoints": true
     }
   ]
 }

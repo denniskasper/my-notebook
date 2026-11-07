@@ -76,7 +76,7 @@ export const strings = {
     modeAgent: 'Agent',
     modeLabel: 'Modus',
     agentPlaceholder: 'Beschreibe eine Aufgabe für den Agent …',
-    agentScope: 'Darf deine Quellen lesen und Notizen schreiben',
+    agentScope: 'Darf im Web suchen, Quellen hinzufügen und Notizen schreiben',
     send: 'Senden',
   },
   agent: {
@@ -87,6 +87,8 @@ export const strings = {
     stopped: 'Abgebrochen',
     steps: 'Schritte',
     stepCount: { one: '{count} Schritt', other: '{count} Schritte' },
+    stepSummary: '{count} · {cost}',
+    costBelowCent: '< {cost}',
     showSteps: 'Schritte anzeigen',
     hideSteps: 'Schritte ausblenden',
     stepStatus: { running: 'läuft', done: 'erledigt', failed: 'fehlgeschlagen' },
@@ -94,6 +96,12 @@ export const strings = {
       list_sources: { plain: 'Prüft die Quellen', withArgument: 'Prüft die Quellen' },
       read_source: { plain: 'Liest eine Quelle', withArgument: 'Liest Quelle „{argument}“' },
       create_note: { plain: 'Schreibt eine Notiz', withArgument: 'Schreibt Notiz „{argument}“' },
+      web_search: { plain: 'Sucht im Web', withArgument: 'Sucht im Web: ‚{argument}‘' },
+      read_web_page: { plain: 'Liest eine Webseite', withArgument: 'Liest Webseite {argument}' },
+      add_url_source: {
+        plain: 'Fügt eine Quelle hinzu',
+        withArgument: 'Fügt {argument} als Quelle hinzu',
+      },
     },
     stepFallback: 'Arbeitet',
   },
@@ -308,6 +316,23 @@ export function retryValues(retryAt: string, now: Date): { time: string; minutes
 }
 
 export type ErrorCode = keyof typeof strings.errors.codes;
+
+// Below this a run's cost rounds to 0,00 $: it shows as „< 0,01 $“ instead.
+const CENT_MICRO_USD = 10_000;
+
+/**
+ * The folded timeline of an Agent run: the number of Steps and, if known, what
+ * the run cost („7 Schritte · 0,04 $“).
+ */
+export function stepSummary(count: number, costMicroUsd: number | null): string {
+  const steps = plural(count, strings.agent.stepCount);
+  if (costMicroUsd === null) return steps;
+  const cost =
+    costMicroUsd > 0 && costMicroUsd < CENT_MICRO_USD / 2
+      ? format(strings.agent.costBelowCent, { cost: formatUsd(CENT_MICRO_USD) })
+      : formatUsd(costMicroUsd);
+  return format(strings.agent.stepSummary, { count: steps, cost });
+}
 
 /** The timeline label of a Step: the tool in German, with its key argument if it has one. */
 export function stepLabel(tool: string, argument: string | null): string {
