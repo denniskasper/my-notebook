@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { z } from 'zod';
 
+import { listMessages, QUESTION_MAX_LENGTH, type ChatMessage } from '@/modules/chat';
 import { getNotebook, NOTEBOOK_TITLE_MAX_LENGTH } from '@/modules/notebooks';
 import {
   getSourceWithPassages,
@@ -11,6 +12,7 @@ import {
   type Source,
 } from '@/modules/sources';
 import { env } from '@/platform/env';
+import { ChatPanel, type MessageView, type OpenCitation } from '@/ui/chat';
 import { AppShell, EmptyConversation, NotebookHeader, Sidebar } from '@/ui/shell';
 import {
   AddTextSourceDialog,
@@ -20,10 +22,11 @@ import {
   type SourceLimits,
   type SourceView,
 } from '@/ui/sources';
-import { strings, toErrorCode } from '@/ui/strings';
+import { format, strings, toErrorCode } from '@/ui/strings';
 
 import {
   addTextSourceAction,
+  clearChatAction,
   createNotebookAction,
   deleteNotebookAction,
   deleteSourceAction,
@@ -60,6 +63,16 @@ function toSourceView(source: Source): SourceView {
   };
 }
 
+function toMessageView(message: ChatMessage): MessageView {
+  return {
+    id: message.id,
+    role: message.role,
+    status: message.status,
+    errorCode: message.errorCode === null ? null : toErrorCode(message.errorCode),
+    parts: message.parts.map(({ text, citations }) => ({ text, citations })),
+  };
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { notebook } = await loadNotebook(params);
   return { title: `${notebook.title} – ${strings.app.name}` };
@@ -68,8 +81,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function NotebookPage({ params, searchParams }: Props) {
   const { visitorId, notebook, notebooks } = await loadNotebook(params);
   const readerParams = parseReaderParams(await searchParams);
-  const [sources, opened] = await Promise.all([
+  const [sources, messages, opened] = await Promise.all([
     listSources(visitorId, notebook.id),
+    listMessages(visitorId, notebook.id),
     readerParams.sourceId
       ? getSourceWithPassages(visitorId, notebook.id, readerParams.sourceId)
       : Promise.resolve(null),
@@ -83,6 +97,13 @@ export default async function NotebookPage({ params, searchParams }: Props) {
   const sourceViews = sources.map(toSourceView);
   const active = sources.filter((source) => source.status === 'ready' && source.enabled).length;
   const notebookPath = `/notebooks/${notebook.id}`;
+  const openCitation: OpenCitation = readerParams.sourceId
+    ? { sourceId: readerParams.sourceId, ordinals: readerParams.ordinals }
+    : null;
+  const chatSourceSummary =
+    sources.length === 0
+      ? strings.notebook.noSources
+      : format(strings.notebook.activeSources, { count: active, total: sources.length });
 
   let reader = null;
   if (opened) {
@@ -146,16 +167,29 @@ export default async function NotebookPage({ params, searchParams }: Props) {
         />
       }
     >
-      <EmptyConversation
-        addTextSource={
-          <AddTextSourceDialog
-            placement="conversation"
-            notebookId={notebook.id}
-            limits={limits}
-            addTextSource={addTextSourceAction}
-          />
-        }
-      />
+      {sources.length === 0 && messages.length === 0 ? (
+        <EmptyConversation
+          addTextSource={
+            <AddTextSourceDialog
+              placement="conversation"
+              notebookId={notebook.id}
+              limits={limits}
+              addTextSource={addTextSourceAction}
+            />
+          }
+        />
+      ) : (
+        <ChatPanel
+          notebookId={notebook.id}
+          messages={messages.map(toMessageView)}
+          existingSourceIds={sources.map((source) => source.id)}
+          openCitation={openCitation}
+          canSubmitQuestion={active > 0}
+          sourceSummary={chatSourceSummary}
+          questionMaxLength={QUESTION_MAX_LENGTH}
+          clearChat={clearChatAction}
+        />
+      )}
     </AppShell>
   );
 }

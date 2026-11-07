@@ -68,6 +68,24 @@ export const strings = {
     modeAgent: 'Agent',
     send: 'Senden',
   },
+  chat: {
+    label: 'Chat',
+    emptyTitle: 'Frag deine Quellen',
+    emptyBody:
+      'Antworten stützen sich nur auf deine aktiven Quellen. Jede Aussage verweist auf die Passage, aus der sie stammt.',
+    noActiveSources: 'Schalte eine Quelle ein, um Fragen zu stellen.',
+    question: 'Deine Frage',
+    answer: 'Antwort',
+    writing: 'Antwort wird geschrieben …',
+    stop: 'Antwort stoppen',
+    stopped: 'Gestoppt',
+    clear: 'Chat leeren',
+    clearConfirm: 'Den ganzen Chat dieses Notebooks löschen?',
+    citation: 'Zitat {n} aus „{title}“',
+    citationDeleted: 'Zitat {n}, Quelle gelöscht',
+    sourceDeleted: 'Quelle gelöscht',
+    passages: { one: 'Passage {list}', other: 'Passagen {list}' },
+  },
   sources: {
     kinds: { text: 'Text einfügen', pdf: 'PDF hochladen', url: 'Webseite' },
     addText: {
@@ -123,6 +141,11 @@ export const strings = {
         'Zu viel Text: Die aktiven Quellen eines Notebooks dürfen zusammen höchstens {cap} Tokens umfassen. Schalte eine andere Quelle aus oder kürze den Text.',
       interrupted: 'Die Verarbeitung wurde unterbrochen.',
       token_count_failed: 'Die Länge des Textes ließ sich nicht bestimmen.',
+      invalid_question: 'Stell eine Frage mit höchstens {max} Zeichen.',
+      no_active_sources:
+        'Schalte zuerst eine Quelle ein, damit sich die Antwort darauf stützen kann.',
+      chat_busy: 'Eine Antwort wird noch geschrieben. Warte, bis sie fertig ist, oder stoppe sie.',
+      llm_failed: 'Die Antwort ließ sich nicht erstellen. Stell die Frage bitte noch einmal.',
       unknown: 'Das hat nicht geklappt. Bitte versuch es noch einmal.',
     },
   },

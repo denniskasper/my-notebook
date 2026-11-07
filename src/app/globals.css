@@ -111,3 +111,10 @@
     background-color: rgb(230 195 92 / 0.32);
   }
 }
+
+/* The streaming caret. */
+@keyframes caret-blink {
+  to {
+    visibility: hidden;
+  }
+}
