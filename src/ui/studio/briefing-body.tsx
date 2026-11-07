@@ -1,7 +1,12 @@
 import { Tooltip } from 'radix-ui';
-import { Fragment, type ReactNode } from 'react';
 
-import { CitationChip, isOpenCitation, TextWithChips, type OpenCitation } from '@/ui/chat';
+import {
+  CitationChip,
+  citationRuns,
+  isOpenCitation,
+  TextWithChips,
+  type OpenCitation,
+} from '@/ui/chat';
 import { cn } from '@/ui/cn';
 
 import { briefingBlocks, type Inline } from './blocks';
@@ -62,7 +67,7 @@ function InlineView({
   existingSourceIds,
   openCitation,
 }: { inline: Inline[] } & Context) {
-  const chip = (token: Extract<Inline, { type: 'citation' }>) => (
+  const renderChip = (token: Extract<Inline, { type: 'citation' }>) => (
     <CitationChip
       key={token.n}
       n={token.n}
@@ -72,29 +77,13 @@ function InlineView({
       open={isOpenCitation(openCitation, token.citation.sourceId, token.citation.ordinals)}
     />
   );
-  const nodes: ReactNode[] = [];
-  for (let index = 0; index < inline.length; index++) {
-    const token = inline[index];
-    if (!token) continue;
-    if (token.type === 'citation') {
-      nodes.push(chip(token));
-      continue;
-    }
-    // The chips right after this text stay on one line with its last word.
-    const chips: Extract<Inline, { type: 'citation' }>[] = [];
-    for (let next = inline[index + 1]; next?.type === 'citation'; next = inline[index + 1]) {
-      chips.push(next);
-      index++;
-    }
-    nodes.push(
-      chips.length === 0 ? (
-        <Fragment key={`t${index}`}>{token.text}</Fragment>
-      ) : (
-        <TextWithChips key={`t${index}`} text={token.text}>
-          {chips.map(chip)}
-        </TextWithChips>
-      ),
-    );
-  }
-  return nodes;
+  return citationRuns(inline).map(({ token, citations, index }) =>
+    token.type === 'citation' ? (
+      renderChip(token)
+    ) : (
+      <TextWithChips key={`t${index}`} text={token.text}>
+        {citations.map(renderChip)}
+      </TextWithChips>
+    ),
+  );
 }

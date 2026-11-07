@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { Tooltip } from 'radix-ui';
-import type { ReactNode } from 'react';
+import { Children, type ReactNode } from 'react';
 
 import { cn } from '@/ui/cn';
 import { format, strings } from '@/ui/strings';
@@ -85,8 +85,8 @@ type TextWithChipsProps = {
   text: string;
   /** How a stretch of the text renders, e.g. with links. */
   renderText?: (text: string) => ReactNode;
-  /** The Citation chips that follow the text. */
-  children: ReactNode;
+  /** The Citation chips that follow the text; without any, the text renders as is. */
+  children?: ReactNode;
 };
 
 /** Text followed by Citation chips: its last word holds on to them, so a chip never starts a line alone. */
@@ -95,6 +95,7 @@ export function TextWithChips({
   renderText = (value) => value,
   children,
 }: TextWithChipsProps) {
+  if (Children.toArray(children).length === 0) return renderText(text);
   const { lead, tail } = splitTrailingWord(text);
   return (
     <>
