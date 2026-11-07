@@ -42,6 +42,7 @@ import {
   updateNoteAction,
 } from '../../actions';
 import { loadSidebar } from '../../sidebar-data';
+import { usageChrome } from '../../usage-chrome';
 import { parseNoteParam, parseReaderParams } from './reader-params';
 
 type Props = {
@@ -55,7 +56,12 @@ async function loadNotebook(params: Props['params']) {
   if (!notebookId.success || !sidebar.visitorId) notFound();
   const notebook = await getNotebook(sidebar.visitorId, notebookId.data);
   if (!notebook) notFound();
-  return { visitorId: sidebar.visitorId, notebook, notebooks: sidebar.notebooks };
+  return {
+    visitorId: sidebar.visitorId,
+    notebook,
+    notebooks: sidebar.notebooks,
+    spend: sidebar.spend,
+  };
 }
 
 function toSourceView(source: Source): SourceView {
@@ -97,7 +103,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function NotebookPage({ params, searchParams }: Props) {
-  const { visitorId, notebook, notebooks } = await loadNotebook(params);
+  const { visitorId, notebook, notebooks, spend } = await loadNotebook(params);
+  const { banner, meter } = usageChrome(spend);
   const query = await searchParams;
   const readerParams = parseReaderParams(query);
   const openNoteId = parseNoteParam(query);
@@ -155,6 +162,7 @@ export default async function NotebookPage({ params, searchParams }: Props) {
 
   return (
     <AppShell
+      banner={banner}
       drawer={{
         reader,
         notes: (
@@ -180,6 +188,7 @@ export default async function NotebookPage({ params, searchParams }: Props) {
           notebooks={notebooks}
           activeNotebookId={notebook.id}
           createNotebook={createNotebookAction}
+          footer={meter}
           activeNotebookSources={
             <>
               <SourceList
@@ -232,6 +241,12 @@ export default async function NotebookPage({ params, searchParams }: Props) {
           existingSourceIds={sourceIds}
           openCitation={openCitation}
           canSubmitQuestion={active > 0}
+          blocked={
+            spend.blocked && {
+              code: spend.blocked.reason,
+              retryAt: spend.blocked.retryAt?.toISOString() ?? null,
+            }
+          }
           sourceSummary={chatSourceSummary}
           questionMaxLength={QUESTION_MAX_LENGTH}
           clearChat={clearChatAction}

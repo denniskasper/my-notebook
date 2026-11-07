@@ -46,6 +46,15 @@ Set on the running container. Names only; values live in the deployment platform
 | `LLM_MODE`          | no          | `fake` (default: scripted answers, no key, no cost) or `real` |
 | `ANTHROPIC_API_KEY` | with `real` | Required when `LLM_MODE=real`                                 |
 | `SOURCE_TOKEN_CAP`  | no          | Tokens of enabled Sources per Notebook; `80000` by default    |
+| `DEMO_BUDGET_DAILY_USD` | no | Demo budget per day (resets at midnight Europe/Berlin); `2` |
+| `DEMO_BUDGET_TOTAL_USD` | no | Demo budget in total, all production spend; `13` |
+| `DAILY_ALLOWANCE_USD` | no | Daily allowance per Visitor; `0.5` |
+| `CHAT_RATE_LIMIT_PER_HOUR` | no | Chat questions per Visitor per hour; `30` |
+| `AGENT_RATE_LIMIT_PER_HOUR` | no | Agent runs per Visitor per hour; `3` |
+| `BRIEFING_RATE_LIMIT_PER_HOUR` | no | Briefings per Visitor per hour; `3` |
+| `AGENT_CONCURRENCY_LIMIT` | no | Agent runs at the same time, demo-wide; `2` |
+| `NEW_VISITORS_PER_IP_PER_DAY` | no | New Visitors per IP (hashed) per day; `5` |
+| `CLAUDE_CODE_OAUTH_TOKEN` | **never** | The server refuses to start in production when it is set |
 
 An invalid environment makes the server exit at start instead of serving errors.
 
@@ -166,7 +175,7 @@ Switching back is the same with `LLM_MODE=fake`; the key can stay set.
 
 ## Raising caps for a recording
 
-Caps are environment variables (today `SOURCE_TOKEN_CAP`). To record a demo with higher limits:
+Caps are environment variables (`SOURCE_TOKEN_CAP`, the Demo budget, the Daily allowance and the rate limits above). For a recording, raise `DEMO_BUDGET_DAILY_USD`, `DAILY_ALLOWANCE_USD` and the hourly rate limits; leave `DEMO_BUDGET_TOTAL_USD` below the Console workspace's spend limit. There is no operator bypass in code. To record a demo with higher limits:
 
 1. Note the current values, then raise them in the Application's environment.
 2. Deploy from Dokploy and wait until `/api/health` answers again.

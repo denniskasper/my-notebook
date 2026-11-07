@@ -2,9 +2,11 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { createNotebook } from '@/modules/notebooks';
 import { addTextSource, deleteSource, processSource, setSourceEnabled } from '@/modules/sources';
-import { spendSince } from '@/modules/usage';
+import { recordUsage, spendSince } from '@/modules/usage';
+import { nextBerlinDayStart } from '@/platform/time';
 import { createVisitor } from '@/modules/visitors';
 import { closeDb } from '@/platform/db';
+import { MODELS } from '@/platform/llm';
 import { resetDatabase } from '@/test/database';
 
 import { answerQuestion, clearChat, failStaleMessages, listMessages, type ChatEvent } from '.';
@@ -166,6 +168,70 @@ describe('answerQuestion', () => {
     });
 
     expect(second).toEqual([{ type: 'error', error: 'chat_busy' }]);
+  });
+});
+
+describe('answerQuestion and the Budget guard', () => {
+  const call = {
+    notebookId: null,
+    inputTokens: 1,
+    outputTokens: 1,
+    cacheReadTokens: 0,
+    cacheWriteTokens: 0,
+  };
+
+  it('refuses a question once the Daily allowance is used up, until midnight in Berlin', async () => {
+    await addReady('Heizungsgesetz', 'Erster Absatz.');
+    // More than the test allowance of $0.01 in one Sonnet call.
+    await recordUsage({
+      ...call,
+      visitorId: visitor,
+      feature: 'studio',
+      model: MODELS.studio,
+      inputTokens: 1_000,
+      outputTokens: 1_000,
+    });
+
+    expect(await ask('Was gilt?')).toEqual([
+      {
+        type: 'error',
+        error: 'daily_allowance',
+        retryAt: nextBerlinDayStart(new Date()).toISOString(),
+      },
+    ]);
+    expect(await listMessages(visitor, notebook)).toEqual([]);
+  });
+
+  it('refuses the 31st question in an hour', async () => {
+    await addReady('Heizungsgesetz', 'Erster Absatz.');
+    for (let i = 0; i < 29; i += 1) {
+      await recordUsage({ ...call, visitorId: visitor, feature: 'chat', model: MODELS.chat });
+    }
+    expect((await ask('Frage 30')).at(-1)).toEqual({ type: 'done', status: 'complete' });
+
+    const [refused] = await ask('Frage 31');
+    expect(refused).toMatchObject({ type: 'error', error: 'rate_limited' });
+  });
+
+  it('refuses everyone once the daily Demo budget is used up', async () => {
+    await addReady('Heizungsgesetz', 'Erster Absatz.');
+    for (let i = 0; i < 3; i += 1) {
+      await recordUsage({
+        ...call,
+        visitorId: null,
+        feature: 'studio',
+        model: MODELS.studio,
+        inputTokens: 1_000,
+        outputTokens: 1_000,
+      });
+    }
+    expect(await ask('Was gilt?')).toEqual([
+      {
+        type: 'error',
+        error: 'demo_budget_daily',
+        retryAt: nextBerlinDayStart(new Date()).toISOString(),
+      },
+    ]);
   });
 });
 

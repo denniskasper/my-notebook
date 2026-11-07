@@ -29,6 +29,10 @@ export default defineConfig({
       IP_HASH_SECRET: 'e2e-ip-hash-secret-not-for-production',
       COMMIT: 'e2e',
       LOG_LEVEL: 'warn',
+      // A tiny Daily allowance: a Visitor's first question uses it up (e2e/allowance.spec.ts).
+      DAILY_ALLOWANCE_USD: '0.000001',
+      // Every spec starts a new Visitor from localhost, so the default of 5 per IP would run out.
+      NEW_VISITORS_PER_IP_PER_DAY: '10000',
     },
   },
 });

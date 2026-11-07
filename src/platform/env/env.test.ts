@@ -59,4 +59,37 @@ describe('parseEnv', () => {
     expect(parseEnv({ ...base, LLM_MODE: 'real', ANTHROPIC_API_KEY: 'key' }).LLM_MODE).toBe('real');
     expect(() => parseEnv({ ...base, LLM_MODE: 'live' })).toThrow(/LLM_MODE/);
   });
+
+  it('defaults the spend caps and rate limits to the Budget guard values', () => {
+    expect(parseEnv(base)).toMatchObject({
+      DEMO_BUDGET_DAILY_USD: 2,
+      DEMO_BUDGET_TOTAL_USD: 13,
+      DAILY_ALLOWANCE_USD: 0.5,
+      CHAT_RATE_LIMIT_PER_HOUR: 30,
+      AGENT_RATE_LIMIT_PER_HOUR: 3,
+      BRIEFING_RATE_LIMIT_PER_HOUR: 3,
+      AGENT_CONCURRENCY_LIMIT: 2,
+      NEW_VISITORS_PER_IP_PER_DAY: 5,
+    });
+  });
+
+  it('reads the caps from the environment and rejects nonsense', () => {
+    expect(parseEnv({ ...base, DAILY_ALLOWANCE_USD: '0.0001' }).DAILY_ALLOWANCE_USD).toBe(0.0001);
+    expect(parseEnv({ ...base, CHAT_RATE_LIMIT_PER_HOUR: '1' }).CHAT_RATE_LIMIT_PER_HOUR).toBe(1);
+    expect(() => parseEnv({ ...base, DEMO_BUDGET_DAILY_USD: '-1' })).toThrow(
+      /DEMO_BUDGET_DAILY_USD/,
+    );
+    expect(() => parseEnv({ ...base, AGENT_CONCURRENCY_LIMIT: '1.5' })).toThrow(
+      /AGENT_CONCURRENCY_LIMIT/,
+    );
+  });
+
+  it('refuses CLAUDE_CODE_OAUTH_TOKEN in production, where only the production key may pay', () => {
+    const production = { ...base, NODE_ENV: 'production', IP_HASH_SECRET: 'x'.repeat(32) };
+    expect(() => parseEnv({ ...production, CLAUDE_CODE_OAUTH_TOKEN: 'token' })).toThrow(
+      /CLAUDE_CODE_OAUTH_TOKEN/,
+    );
+    expect(() => parseEnv(production)).not.toThrow();
+    expect(() => parseEnv({ ...base, CLAUDE_CODE_OAUTH_TOKEN: 'token' })).not.toThrow();
+  });
 });

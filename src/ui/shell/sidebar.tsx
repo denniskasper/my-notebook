@@ -14,6 +14,8 @@ type Props = {
   createNotebook: () => Promise<void>;
   /** The open Notebook's Sources and the way to add one, nested under it. */
   activeNotebookSources?: ReactNode;
+  /** Pinned below the list (the Kontingent meter). */
+  footer?: ReactNode;
 };
 
 /** Notebook list; the open Notebook unfolds to show its Sources. */
@@ -22,6 +24,7 @@ export function Sidebar({
   activeNotebookId,
   createNotebook,
   activeNotebookSources,
+  footer,
 }: Props) {
   return (
     <>
@@ -80,6 +83,7 @@ export function Sidebar({
           </SubmitButton>
         </form>
       </nav>
+      {footer}
     </>
   );
 }

@@ -1,7 +1,9 @@
-import { eq } from 'drizzle-orm';
+import { and, count, eq, gte, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
+import { berlinDayStart } from '@/platform/time';
 import { db } from '@/platform/db';
+import { env } from '@/platform/env';
 
 import { visitors } from './schema';
 
@@ -37,17 +39,44 @@ export async function findVisitor(visitorId: string) {
   return row ?? null;
 }
 
+/** A new Visitor, unless its IP already created `NEW_VISITORS_PER_IP_PER_DAY` today (Berlin). */
+async function createVisitorWithinIpLimit(ipHash: string | null): Promise<string | null> {
+  if (ipHash === null) return createVisitor({ ipHash });
+  return db().transaction(async (tx) => {
+    // Serialises new Visitors per IP, so a burst can't slip past the count.
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`visitor-ip:${ipHash}`}))`);
+    const [row] = await tx
+      .select({ created: count() })
+      .from(visitors)
+      .where(
+        and(
+          eq(visitors.createdIpHash, ipHash),
+          gte(visitors.createdAt, berlinDayStart(new Date())),
+        ),
+      );
+    if ((row?.created ?? 0) >= env().NEW_VISITORS_PER_IP_PER_DAY) return null;
+    const [visitor] = await tx
+      .insert(visitors)
+      .values({ createdIpHash: ipHash })
+      .returning({ id: visitors.id });
+    if (!visitor) throw new Error('Visitor insert returned no row');
+    return visitor.id;
+  });
+}
+
 /**
  * The Visitor behind a cookie value for a mutation: the existing one (touched),
  * or a new one when the cookie is missing, malformed or points to a deleted Visitor.
+ * `visitor_limit` when the IP may not create another Visitor today.
  */
 export async function resolveVisitor(input: {
   cookieValue: string | undefined;
   ipHash: string | null;
-}): Promise<{ visitorId: string; created: boolean }> {
+}): Promise<{ visitorId: string; created: boolean } | { error: 'visitor_limit' }> {
   const existing = parseVisitorId(input.cookieValue);
   if (existing && (await touchVisitor(existing))) {
     return { visitorId: existing, created: false };
   }
-  return { visitorId: await createVisitor({ ipHash: input.ipHash }), created: true };
+  const visitorId = await createVisitorWithinIpLimit(input.ipHash);
+  return visitorId ? { visitorId, created: true } : { error: 'visitor_limit' };
 }

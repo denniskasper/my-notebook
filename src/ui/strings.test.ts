@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import { errorMessage, format, formatNumber, plural, strings, toErrorCode } from './strings';
+import {
+  errorMessage,
+  format,
+  formatNumber,
+  plural,
+  retryValues,
+  strings,
+  toErrorCode,
+} from './strings';
 
 describe('format', () => {
   it('fills named placeholders', () => {
@@ -65,5 +73,32 @@ describe('toErrorCode', () => {
 
   it('names the token cap in the German message', () => {
     expect(errorMessage('token_cap_exceeded', { cap: 80_000 })).toContain('80.000 Tokens');
+  });
+});
+
+describe('Budget guard messages', () => {
+  it('names the Berlin time the Daily allowance is back', () => {
+    // Midnight in Berlin is 23:00 UTC in winter.
+    expect(
+      errorMessage('daily_allowance', retryValues('2026-11-07T23:00:00.000Z', new Date())),
+    ).toBe('Dein Tageskontingent ist aufgebraucht – ab 00:00 Uhr wieder verfügbar.');
+  });
+
+  it('rounds the wait for a rate limit up to whole minutes, at least one', () => {
+    const now = new Date('2026-11-07T12:00:00Z');
+    expect(errorMessage('rate_limited', retryValues('2026-11-07T12:12:01Z', now))).toBe(
+      'Kurz durchatmen – in 13 Min. wieder möglich.',
+    );
+    expect(errorMessage('rate_limited', retryValues('2026-11-07T12:00:00Z', now))).toBe(
+      'Kurz durchatmen – in 1 Min. wieder möglich.',
+    );
+  });
+
+  it('has the Demo budget and Agent messages from the spec', () => {
+    expect(errorMessage('demo_budget_daily')).toBe(
+      'Das Demo-Budget für heute ist aufgebraucht. Morgen geht’s weiter.',
+    );
+    expect(errorMessage('demo_budget_total')).toBe('Das Demo-Budget ist aufgebraucht.');
+    expect(errorMessage('agent_busy')).toBe('Agent ist gerade ausgelastet.');
   });
 });

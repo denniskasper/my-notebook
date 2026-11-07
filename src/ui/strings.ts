@@ -154,6 +154,12 @@ export const strings = {
     studioEmpty: 'Sobald Quellen da sind, kannst du hier ein Briefing erstellen.',
     notesEmpty: 'Noch keine Notizen. Speichere eine Antwort oder schreib selbst eine.',
   },
+  usage: {
+    meterLabel: 'Tageskontingent',
+    meterLeft: '{percent} % übrig',
+    composerPaused: 'Fragen sind gerade pausiert.',
+    meterHint: 'Dein Kontingent für KI-Antworten heute. Neu ab {time} Uhr.',
+  },
   notFound: {
     title: 'Notebook nicht gefunden',
     body: 'Dieses Notebook gibt es nicht oder nicht mehr.',
@@ -185,10 +191,40 @@ export const strings = {
       invalid_note_body: 'Die Notiz darf höchstens {max} Zeichen lang sein.',
       note_not_found: 'Diese Notiz gibt es nicht mehr.',
       answer_not_found: 'Diese Antwort lässt sich nicht als Notiz speichern.',
+      daily_allowance: 'Dein Tageskontingent ist aufgebraucht – ab {time} Uhr wieder verfügbar.',
+      demo_budget_daily: 'Das Demo-Budget für heute ist aufgebraucht. Morgen geht’s weiter.',
+      demo_budget_total: 'Das Demo-Budget ist aufgebraucht.',
+      rate_limited: 'Kurz durchatmen – in {minutes} Min. wieder möglich.',
+      agent_busy: 'Agent ist gerade ausgelastet.',
+      visitor_limit:
+        'Von deinem Netzwerk aus wurden heute schon zu viele neue Notebooks begonnen. Morgen geht’s weiter.',
       unknown: 'Das hat nicht geklappt. Bitte versuch es noch einmal.',
     },
   },
 } as const;
+
+const clockFormat = new Intl.DateTimeFormat('de-DE', {
+  timeZone: 'Europe/Berlin',
+  hour: '2-digit',
+  minute: '2-digit',
+});
+
+/** A time of day in Berlin, where the daily caps reset: „00:00“. */
+export function formatClock(date: Date): string {
+  return clockFormat.format(date);
+}
+
+/**
+ * `{time}` and `{minutes}` for a Budget guard message, from when the refusal
+ * ends (ISO): the Berlin time, and the whole minutes left (at least one).
+ */
+export function retryValues(retryAt: string, now: Date): { time: string; minutes: number } {
+  const at = new Date(retryAt);
+  return {
+    time: formatClock(at),
+    minutes: Math.max(1, Math.ceil((at.getTime() - now.getTime()) / 60_000)),
+  };
+}
 
 export type ErrorCode = keyof typeof strings.errors.codes;
 

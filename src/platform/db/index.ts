@@ -24,6 +24,19 @@ export function db(): Database {
   return state().db;
 }
 
+/**
+ * Runs `fn` on one connection held for its whole duration, for session-level
+ * state such as advisory locks that must be released on the same connection.
+ */
+export async function withConnection<T>(fn: (connection: Database) => Promise<T>): Promise<T> {
+  const client = await state().pool.connect();
+  try {
+    return await fn(drizzle({ client }));
+  } finally {
+    client.release();
+  }
+}
+
 /** Closes the pool (tests and scripts). */
 export async function closeDb(): Promise<void> {
   const current = globalForDb.__myNotebookDb;
