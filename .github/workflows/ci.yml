@@ -140,6 +140,16 @@ jobs:
       # Agent mode needs the SDK's bundled Claude Code binary, which file tracing can't see.
       - name: Check the Agent SDK binary
         run: docker run --rm -i --entrypoint node my-notebook:smoke --input-type=module - < docker/check-agent-binary.mjs
+      # Every run shows the image size and its layers in the job summary.
+      - name: Report image size
+        run: |
+          size=$(docker image inspect my-notebook:smoke --format '{{.Size}}')
+          {
+            echo "### Image size: $(numfmt --to=si --suffix=B "$size")"
+            echo '```'
+            docker history --format '{{.Size}}\t{{.CreatedBy}}' my-notebook:smoke | cut -c1-110
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Save image for the security scan
         run: docker save my-notebook:smoke -o image.tar
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
