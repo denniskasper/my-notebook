@@ -8,6 +8,17 @@ test('a Visitor creates a Notebook, renames it and finds it again', async ({ pag
   const title = `Wärmewende ${Date.now()}`;
 
   await page.goto('/');
+
+  // The tab shows My Notebook's own mark.
+  await expect(page.locator('head link[rel="icon"][type="image/svg+xml"]')).toHaveCount(1);
+  const iconLinks = page.locator('head link[rel="icon"], head link[rel="apple-touch-icon"]');
+  const iconHrefs = await iconLinks.evaluateAll((links) =>
+    links.map((link) => link.getAttribute('href') ?? ''),
+  );
+  for (const href of [...iconHrefs, '/favicon.ico']) {
+    expect((await page.request.get(href)).status(), href).toBe(200);
+  }
+
   await page.getByRole('button', { name: strings.welcome.cta }).click();
 
   await expect(page).toHaveURL(/\/notebooks\/[0-9a-f-]{36}$/);
