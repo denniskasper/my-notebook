@@ -1,13 +1,17 @@
 import type { ErrorCode } from '@/ui/strings';
 
-import type { CitationView } from './events';
+import type { CitationView, StepView } from './events';
 
-export type MessagePartView = { text: string; citations: CitationView[] };
+export type TextPartView = { type: 'text'; text: string; citations: CitationView[] };
+
+/** A run of text with its Citations, or (Agent) one Step. */
+export type MessagePartView = TextPartView | StepView;
 
 /** What the UI shows of a Chat message; pages map module rows onto it. */
 export type MessageView = {
   id: string;
   role: 'user' | 'assistant';
+  mode: 'chat' | 'agent';
   status: 'streaming' | 'complete' | 'failed' | 'stopped';
   errorCode: ErrorCode | null;
   parts: MessagePartView[];

@@ -1,10 +1,11 @@
-import { and, asc, desc, eq, inArray, lt } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, inArray, lt, sql } from 'drizzle-orm';
 
 import { getNotebook } from '@/modules/notebooks';
 import { db } from '@/platform/db';
 import { logger } from '@/platform/logging';
 
-import { messagePartsSchema, type MessagePart } from './parts';
+import { messagePartsSchema, messageText, type MessagePart, type TextPart } from './parts';
+import type { HistoryTurn } from './prompt';
 import { messages } from './schema';
 
 // An answer streams for seconds; one older than this lost its process.
@@ -81,11 +82,7 @@ export async function getAnswer(
     .orderBy(desc(messages.id))
     .limit(1);
   return {
-    question: question
-      ? toChatMessage(question)
-          .parts.map((part) => part.text)
-          .join('')
-      : null,
+    question: question ? messageText(toChatMessage(question).parts) : null,
     parts: toChatMessage(row).parts,
   };
 }
@@ -108,4 +105,94 @@ export async function failStaleMessages(input: { olderThan: Date }): Promise<num
     .where(and(eq(messages.status, 'streaming'), lt(messages.createdAt, input.olderThan)))
     .returning({ id: messages.id });
   return rows.length;
+}
+
+/** Earlier questions (Chat or Agent) with the text of their answers; failed or empty answers are left out. */
+export async function listHistory(visitorId: string, notebookId: string): Promise<HistoryTurn[]> {
+  const conversation = await listMessages(visitorId, notebookId);
+  const turns: HistoryTurn[] = [];
+  conversation.forEach((message, index) => {
+    const reply = conversation[index + 1];
+    if (message.role !== 'user' || reply?.role !== 'assistant') return;
+    if (reply.status !== 'complete' && reply.status !== 'stopped') return;
+    const answer = messageText(reply.parts);
+    if (answer.trim() === '') return;
+    turns.push({ question: messageText(message.parts), answer });
+  });
+  return turns;
+}
+
+/** The ids of a question and its answer, as `startExchange` stored them. */
+export type Exchange = { userMessageId: string; assistantMessageId: string };
+
+/**
+ * Stores a question (Chat or Agent task) and a `streaming` answer; null while
+ * another answer in the Notebook is still streaming. The caller has checked
+ * that the Visitor owns the Notebook.
+ */
+export async function startExchange(input: {
+  notebookId: string;
+  question: string;
+  mode: ChatMessage['mode'];
+}): Promise<Exchange | null> {
+  const { notebookId, question, mode } = input;
+  return db().transaction(async (tx) => {
+    // One answer at a time per Notebook, also across concurrent requests.
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`chat:${notebookId}`}))`);
+    const [streaming] = await tx
+      .select({ id: messages.id })
+      .from(messages)
+      .where(
+        and(
+          eq(messages.notebookId, notebookId),
+          eq(messages.status, 'streaming'),
+          gt(messages.createdAt, new Date(Date.now() - STREAMING_STALE_AFTER_MS)),
+        ),
+      )
+      .limit(1);
+    if (streaming) return null;
+
+    const userPart: TextPart = { type: 'text', text: question, citations: [] };
+    const [user] = await tx
+      .insert(messages)
+      .values({ notebookId, role: 'user', mode, parts: [userPart], status: 'complete' })
+      .returning({ id: messages.id });
+    const [assistant] = await tx
+      .insert(messages)
+      .values({ notebookId, role: 'assistant', mode, parts: [], status: 'streaming' })
+      .returning({ id: messages.id });
+    if (!user || !assistant) throw new Error('Message insert returned no row');
+    return { userMessageId: user.id, assistantMessageId: assistant.id };
+  });
+}
+
+/** Saves an answer's parts so far, while it is still streaming (an Agent run's Steps survive a reload). */
+export async function saveStreamingParts(messageId: string, parts: MessagePart[]): Promise<void> {
+  await db()
+    .update(messages)
+    .set({ parts })
+    .where(and(eq(messages.id, messageId), eq(messages.status, 'streaming')));
+}
+
+/**
+ * Stores an answer's outcome; false if it already left `streaming` (the
+ * sweep's `interrupted` stands) or is gone. Empty text parts are dropped.
+ */
+export async function finishAnswer(
+  messageId: string,
+  outcome: {
+    status: 'complete' | 'stopped' | 'failed';
+    parts: MessagePart[];
+    errorCode: string | null;
+  },
+): Promise<boolean> {
+  const parts = outcome.parts.filter(
+    (part) => part.type !== 'text' || part.text !== '' || part.citations.length > 0,
+  );
+  const [row] = await db()
+    .update(messages)
+    .set({ parts, status: outcome.status, errorCode: outcome.errorCode })
+    .where(and(eq(messages.id, messageId), eq(messages.status, 'streaming')))
+    .returning({ id: messages.id });
+  return row !== undefined;
 }

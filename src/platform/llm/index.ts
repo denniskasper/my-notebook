@@ -5,6 +5,11 @@ import { createRealLlm } from './real';
 import type { Llm } from './types';
 
 export type {
+  AgentOutcome,
+  AgentRequest,
+  AgentStreamEvent,
+  AgentTool,
+  AgentToolResult,
   ChatDocument,
   ChatRequest,
   ChatStreamEvent,

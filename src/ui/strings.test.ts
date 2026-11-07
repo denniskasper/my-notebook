@@ -8,6 +8,7 @@ import {
   formatUsd,
   plural,
   retryValues,
+  stepLabel,
   strings,
   toErrorCode,
 } from './strings';
@@ -127,5 +128,17 @@ describe('formatUsd', () => {
     expect(formatUsd(421_337)).toMatch(/^0,42\s\$$/);
     expect(formatUsd(13_000_000)).toMatch(/^13,00\s\$$/);
     expect(formatUsd(1_234_565_000)).toMatch(/^1\.234,57\s\$$/);
+  });
+});
+
+describe('stepLabel', () => {
+  it('names a Step by its tool and key argument', () => {
+    expect(stepLabel('read_source', 'Heizungsgesetz')).toBe('Liest Quelle „Heizungsgesetz“');
+    expect(stepLabel('create_note', null)).toBe('Schreibt eine Notiz');
+    expect(stepLabel('list_sources', null)).toBe('Prüft die Quellen');
+  });
+
+  it('falls back to a neutral label for a tool it does not know', () => {
+    expect(stepLabel('teleport', 'Mond')).toBe('Arbeitet');
   });
 });

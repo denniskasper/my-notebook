@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 
+import { runAgentWithSdk } from './agent-sdk';
 import { MODELS } from './models';
 import type { ChatRequest, ChatStreamEvent, Llm, LlmUsage } from './types';
 
@@ -28,6 +29,9 @@ export function createRealLlm(apiKey: string): Llm {
     },
     streamBriefing(request, { signal }) {
       return streamAnswer(client, request, BRIEFING, signal);
+    },
+    runAgent(request, { signal }) {
+      return runAgentWithSdk(apiKey, request, { signal });
     },
   };
 }

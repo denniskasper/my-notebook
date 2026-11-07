@@ -54,6 +54,10 @@ Set on the running container. Names only; values live in the deployment platform
 | `BRIEFING_RATE_LIMIT_PER_HOUR` | no | Briefings per Visitor per hour; `3` |
 | `AGENT_CONCURRENCY_LIMIT` | no | Agent runs at the same time, demo-wide; `2` |
 | `NEW_VISITORS_PER_IP_PER_DAY` | no | New Visitors per IP (hashed) per day; `5` |
+| `AGENT_MAX_TURNS` | no | Model turns per Agent run; `15` |
+| `AGENT_MAX_BUDGET_USD` | no | Spend per Agent run, in USD; `0.3` |
+| `AGENT_TIMEOUT_SECONDS` | no | Wall-clock time per Agent run; `180` |
+| `AGENT_MAX_NOTES` | no | Notes one Agent run may write; `2` |
 | `CLAUDE_CODE_OAUTH_TOKEN` | **never** | The server refuses to start in production when it is set |
 
 Never set `URL_FETCH_TEST_LOOPBACK_PORT` on a deployment: it lets the guarded URL fetcher reach one loopback port and exists only for the integration and e2e fixtures (the server refuses it with `LLM_MODE=real`).
@@ -63,6 +67,8 @@ An invalid environment makes the server exit at start instead of serving errors.
 ### CI smoke check
 
 The `image` job loads the built image, starts it against the job's Postgres service and polls `/api/health` until it answers `200` with `commit` equal to the build's commit. This also runs every migration against an empty database.
+
+It then runs `docker/check-agent-binary.mjs` in the image, which resolves the Agent SDK's bundled Claude Code binary the way the SDK does and starts it with `--version`. File tracing can't see that binary (an optional, per-platform package resolved at runtime), so `next.config.ts` copies it into the standalone output with `outputFileTracingIncludes`; the check catches the day it goes missing.
 
 ## CI pipeline
 

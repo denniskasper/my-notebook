@@ -1,3 +1,5 @@
+import type { z } from 'zod';
+
 /** A Source as Claude sees it: a titled custom-content document, one block per Passage. */
 export type ChatDocument = { title: string; blocks: string[] };
 
@@ -39,7 +41,46 @@ export type ChatStreamEvent =
   | { type: 'citation'; citation: LlmCitation }
   | { type: 'finished'; usage: LlmUsage; stopReason: string | null };
 
-/** Everything the app asks of Claude. A later slice adds the Agent. */
+/** What one Agent tool call returns to the Agent; `isError` lets it adapt instead of failing. */
+export type AgentToolResult = { text: string; isError?: boolean };
+
+/**
+ * A tool the Agent may call. The handler is a plain function from the module
+ * that owns it; only the adapter wraps it for its SDK (ADR 0001).
+ */
+export type AgentTool = {
+  name: string;
+  description: string;
+  /** The tool's input as a Zod object shape (what the model sees as its schema). */
+  input: z.ZodRawShape;
+  /** Runs the tool; `input` is what the model sent, to be parsed by the handler. */
+  run(input: unknown): Promise<AgentToolResult>;
+};
+
+export type AgentRequest = {
+  system: string;
+  /** The task, with the last few conversation turns as text before it. */
+  prompt: string;
+  tools: AgentTool[];
+  maxTurns: number;
+  maxBudgetUsd: number;
+};
+
+/** Why an Agent run ended on its own (an aborted run throws instead). */
+export type AgentOutcome = 'complete' | 'max_turns' | 'max_budget' | 'failed';
+
+/**
+ * What an Agent run streams. Tool calls are not events: they run the tools'
+ * handlers, which see them first. `text_block` opens a new stretch of text
+ * (a new turn); `usage` reports one finished model call.
+ */
+export type AgentStreamEvent =
+  | { type: 'text_block' }
+  | { type: 'text'; text: string }
+  | { type: 'usage'; usage: LlmUsage }
+  | { type: 'finished'; outcome: AgentOutcome; costUsd: number; usage: LlmUsage };
+
+/** Everything the app asks of Claude. */
 export type Llm = {
   /** Input tokens `text` takes up as a user message (the free counting endpoint). */
   countTokens(text: string): Promise<number>;
@@ -56,4 +97,9 @@ export type Llm = {
     request: ChatRequest,
     options: { signal: AbortSignal },
   ): AsyncIterable<ChatStreamEvent>;
+  /** Runs the Agent with `tools`; aborting `signal` ends the run (it throws). */
+  runAgent(
+    request: AgentRequest,
+    options: { signal: AbortSignal },
+  ): AsyncIterable<AgentStreamEvent>;
 };

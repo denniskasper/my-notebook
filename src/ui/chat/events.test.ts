@@ -16,6 +16,20 @@ describe('chatEventSchema', () => {
       },
       { type: 'done', status: 'complete' },
       { type: 'done', status: 'stopped' },
+      {
+        type: 'step',
+        part: 2,
+        step: {
+          type: 'step',
+          id: 's1',
+          tool: 'read_source',
+          argument: 'Quelle',
+          status: 'running',
+        },
+      },
+      { type: 'note_created', noteId: id },
+      { type: 'done', status: 'stopped', reason: 'agent_timeout' },
+      { type: 'error', error: 'agent_busy' },
       { type: 'error', error: 'llm_failed' },
       { type: 'error', error: 'daily_allowance', retryAt: '2026-11-07T23:00:00.000Z' },
       { type: 'error', error: 'rate_limited', retryAt: '2026-11-07T12:20:00.000Z' },
@@ -34,6 +48,12 @@ describe('chatEventSchema', () => {
         citation: { sourceId: id, ordinals: [], quote: '', sourceTitle: '' },
       },
       { type: 'done', status: 'streaming' },
+      { type: 'done', status: 'stopped', reason: 'müde' },
+      {
+        type: 'step',
+        part: 0,
+        step: { type: 'step', id: 's1', tool: 'x', argument: null, status: 'pausiert' },
+      },
       { type: 'error', error: 'kaputt' },
       { type: 'error', error: 'rate_limited', retryAt: 'in zehn Minuten' },
     ];

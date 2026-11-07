@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import { createFakeLlm } from './fake';
-import type { ChatRequest, ChatStreamEvent } from './types';
+import type {
+  AgentRequest,
+  AgentStreamEvent,
+  AgentTool,
+  ChatRequest,
+  ChatStreamEvent,
+} from './types';
 
 describe('fake llm', () => {
   it('counts tokens deterministically, about four characters per token', async () => {
@@ -104,5 +110,87 @@ describe('fake llm streamBriefing', () => {
       endBlockIndex: 1,
       citedText: 'Zuschuss bis 70 Prozent.',
     });
+  });
+});
+
+describe('fake llm runAgent', () => {
+  type Call = { name: string; input: unknown };
+
+  function notebookTools(calls: Call[]): AgentTool[] {
+    const tool = (name: string, result: unknown): AgentTool => ({
+      name,
+      description: name,
+      input: {},
+      async run(input) {
+        calls.push({ name, input });
+        return { text: JSON.stringify(result) };
+      },
+    });
+    return [
+      tool('list_sources', {
+        sources: [
+          { id: 'src-a', title: 'Quelle A' },
+          { id: 'src-b', title: 'Quelle B' },
+        ],
+      }),
+      tool('read_source', { passages: [{ id: 'q1-0', text: 'Erster.' }] }),
+      tool('create_note', { noteId: 'n1' }),
+    ];
+  }
+
+  const agentRequest = (tools: AgentTool[], prompt: string, maxTurns = 15): AgentRequest => ({
+    system: 'Arbeite mit den Quellen.',
+    prompt,
+    tools,
+    maxTurns,
+    maxBudgetUsd: 0.3,
+  });
+
+  async function run(request: AgentRequest, signal = new AbortController().signal) {
+    const events: AgentStreamEvent[] = [];
+    for await (const event of createFakeLlm({ delayMs: 0 }).runAgent(request, { signal })) {
+      events.push(event);
+    }
+    return events;
+  }
+
+  it('lists the Sources, reads them and writes a Note when the task asks for one', async () => {
+    const calls: Call[] = [];
+    const events = await run(agentRequest(notebookTools(calls), 'Vergleiche A und B als Notiz.'));
+
+    expect(calls.map((call) => call.name)).toEqual([
+      'list_sources',
+      'read_source',
+      'read_source',
+      'create_note',
+    ]);
+    expect(calls[1]?.input).toEqual({ sourceId: 'src-a' });
+    expect(calls[2]?.input).toEqual({ sourceId: 'src-b' });
+    const text = events.flatMap((e) => (e.type === 'text' ? [e.text] : [])).join('');
+    expect(text).toContain('[[p:q1-0]]');
+    expect(events.at(-1)).toMatchObject({ type: 'finished', outcome: 'complete' });
+    const finished = events.at(-1);
+    expect(finished?.type === 'finished' && finished.costUsd).toBeGreaterThan(0);
+  });
+
+  it('writes no Note unless asked, and stops at maxTurns', async () => {
+    const calls: Call[] = [];
+    const events = await run(agentRequest(notebookTools(calls), 'Was steht drin?', 2));
+    expect(calls.map((call) => call.name)).toEqual(['list_sources', 'read_source']);
+    expect(events.at(-1)).toMatchObject({ type: 'finished', outcome: 'max_turns' });
+  });
+
+  it('throws once the signal is aborted', async () => {
+    const controller = new AbortController();
+    const calls: Call[] = [];
+    const tools = notebookTools(calls).map((tool) => ({
+      ...tool,
+      run: async (input: unknown) => {
+        controller.abort();
+        return tool.run(input);
+      },
+    }));
+    await expect(run(agentRequest(tools, 'Los.'), controller.signal)).rejects.toThrow();
+    expect(calls).toHaveLength(1);
   });
 });

@@ -8,18 +8,23 @@ import { usageEvents, type USAGE_FEATURES } from './schema';
 export type UsageFeature = (typeof USAGE_FEATURES)[number];
 export type UsageEvent = typeof usageEvents.$inferSelect;
 
-/** Records one LLM call and what it cost. */
+/**
+ * Records one LLM call (or one Agent run) and what it cost: `costMicroUsd` when
+ * the SDK reported the cost itself, else priced from the tokens.
+ */
 export async function recordUsage(
   input: {
     visitorId: string | null;
     notebookId: string | null;
     feature: UsageFeature;
     model: string;
+    costMicroUsd?: number;
   } & TokenUsage,
 ): Promise<UsageEvent> {
+  const { costMicroUsd: reported, ...event } = input;
   const [row] = await db()
     .insert(usageEvents)
-    .values({ ...input, costMicroUsd: costMicroUsd(input.model, input) })
+    .values({ ...event, costMicroUsd: reported ?? costMicroUsd(input.model, input) })
     .returning();
   if (!row) throw new Error('Usage insert returned no row');
   return row;

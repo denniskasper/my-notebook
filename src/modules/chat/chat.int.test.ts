@@ -9,7 +9,14 @@ import { closeDb } from '@/platform/db';
 import { MODELS } from '@/platform/llm';
 import { resetDatabase } from '@/test/database';
 
-import { answerQuestion, clearChat, failStaleMessages, listMessages, type ChatEvent } from '.';
+import {
+  answerQuestion,
+  clearChat,
+  failStaleMessages,
+  listMessages,
+  messageText,
+  type ChatEvent,
+} from '.';
 
 let visitor: string;
 let otherVisitor: string;
@@ -85,8 +92,8 @@ describe('answerQuestion', () => {
       parts: [{ type: 'text', text: 'Was gilt?', citations: [] }],
     });
     expect(answer).toMatchObject({ role: 'assistant', status: 'complete', errorCode: null });
-    expect(answer?.parts.map((p) => p.text).join('')).toBe(answerText(events));
-    expect(answer?.parts.flatMap((p) => p.citations)).toMatchObject([
+    expect(messageText(answer?.parts ?? [])).toBe(answerText(events));
+    expect(answer?.parts.flatMap((p) => (p.type === 'text' ? p.citations : []))).toMatchObject([
       { sourceId, ordinals: [0] },
       { sourceId, ordinals: [1] },
     ]);
@@ -127,7 +134,7 @@ describe('answerQuestion', () => {
     expect(events.at(-1)).toEqual({ type: 'done', status: 'stopped' });
     const answer = (await listMessages(visitor, notebook))[1];
     expect(answer?.status).toBe('stopped');
-    expect(answer?.parts.map((p) => p.text).join('')).toBe(answerText(events));
+    expect(messageText(answer?.parts ?? [])).toBe(answerText(events));
     expect(answerText(events).length).toBeGreaterThan(0);
     expect(await spendSince({ since: start, visitorId: visitor })).toBeGreaterThan(0);
   });
@@ -138,7 +145,7 @@ describe('answerQuestion', () => {
     await deleteSource(visitor, notebook, sourceId);
 
     const answer = (await listMessages(visitor, notebook))[1];
-    expect(answer?.parts.flatMap((p) => p.citations)).toEqual([
+    expect(answer?.parts.flatMap((p) => (p.type === 'text' ? p.citations : []))).toEqual([
       { sourceId, ordinals: [0], quote: 'Ein Absatz.', sourceTitle: 'Vergänglich' },
     ]);
   });
