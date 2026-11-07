@@ -67,14 +67,15 @@ export function SourceReader({ source, passages, highlight, closeHref, limits }:
         <ol className="max-w-[62ch]">
           {passages.map((passage, index) => {
             const isHighlighted = highlighted.has(passage.ordinal);
-            const startsPage = passage.page !== null && passage.page !== passages[index - 1]?.page;
+            const pageStart =
+              passage.page !== null && passage.page !== passages[index - 1]?.page ? passage.page : null;
             return (
               <li
                 key={`${passage.ordinal}-${isHighlighted}`}
                 data-ordinal={passage.ordinal}
                 className="grid grid-cols-[44px_1fr] pr-6"
               >
-                {startsPage && <PageMarker page={passage.page ?? 0} first={index === 0} />}
+                {pageStart !== null && <PageMarker page={pageStart} first={index === 0} />}
                 {/* Ordinals count from 1 for readers; Citations store them from 0. */}
                 <span
                   aria-hidden

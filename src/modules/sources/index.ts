@@ -7,7 +7,7 @@ export {
 } from './input';
 export { pdfPassages, type PdfTextItem } from './pdf-passages';
 export { splitIntoPassages } from './passages';
-export { PDF_MAX_BYTES, type PdfError } from './pdf';
+export { PDF_MAX_BYTES } from './pdf';
 export {
   addPdfSource,
   addTextSource,

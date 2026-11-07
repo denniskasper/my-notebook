@@ -17,6 +17,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/ui/components/dropdown-menu';
+import { KIND_BUTTON } from '@/ui/components/kind-button';
 import { SubmitButton } from '@/ui/components/submit-button';
 import type { ActionResult } from '@/ui/shell';
 import { errorMessage, strings } from '@/ui/strings';
@@ -35,9 +36,6 @@ type Props = {
 type Kind = 'text' | 'pdf';
 
 const KIND_ICONS = { text: Type, pdf: FileText } as const;
-
-const KIND_BUTTON =
-  'flex h-9 items-center gap-2 rounded-md border border-line px-3 text-text transition-colors hover:border-muted hover:bg-hover';
 
 /**
  * Adds a Source: in the sidebar a menu of kinds, in the empty conversation one

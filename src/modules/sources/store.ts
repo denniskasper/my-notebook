@@ -9,6 +9,7 @@ import { logger } from '@/platform/logging';
 import { sourceTextSchema, sourceTitleSchema, type SourceErrorCode } from './input';
 import { splitIntoPassages, type PassageDraft } from './passages';
 import { extractPdfPassages, titleFromFileName, type PdfError } from './pdf';
+import type { PdfPassageDraft } from './pdf-passages';
 import { passages, sources } from './schema';
 import { fitsTokenCap } from './token-cap';
 
@@ -99,7 +100,7 @@ export async function addPdfSource(
 /** Inserts the Source and its Passages together, so a retry always has its Passages. */
 async function insertSource(
   values: typeof sources.$inferInsert,
-  drafts: (PassageDraft & { page?: number })[],
+  drafts: PassageDraft[] | PdfPassageDraft[],
 ): Promise<Source> {
   return db().transaction(async (tx) => {
     const [source] = await tx.insert(sources).values(values).returning();

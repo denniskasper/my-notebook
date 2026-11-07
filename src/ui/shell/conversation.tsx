@@ -1,10 +1,8 @@
 import { ArrowUp, Globe } from 'lucide-react';
 import type { ReactNode } from 'react';
 
+import { KIND_BUTTON } from '@/ui/components/kind-button';
 import { strings } from '@/ui/strings';
-
-const KIND_BUTTON =
-  'flex h-9 items-center gap-2 rounded-md border border-line px-3 text-text transition-colors hover:border-muted hover:bg-hover';
 
 /** The conversation centre of a Notebook without Sources: an invitation to add one. */
 export function EmptyConversation({ addSource }: { addSource: ReactNode }) {

@@ -10,6 +10,8 @@ export type PdfPassageDraft = PassageDraft & { page: number };
 const PAGE_SEPARATOR = '\n\n';
 // A line gap this much larger than the page's usual line spacing starts a new paragraph.
 const PARAGRAPH_GAP_FACTOR = 1.4;
+// Line spacing assumed when a page has too few lines to measure it: a typical 1.5× leading.
+const DEFAULT_LEADING = 1.5;
 // After "Kinder-" these words mean the hyphen stands for a left-out word part, not a line break.
 const CONJUNCTIONS = /^(und|oder|bis|sowie|bzw\.?)\b/;
 
@@ -88,7 +90,7 @@ function usualLineSpacing(lines: Line[]): number {
     .filter((gap) => gap > 0)
     .sort((a, b) => a - b);
   const fontSize = lines[0]?.fontSize ?? 0;
-  const fallback = fontSize * 1.5;
+  const fallback = fontSize * DEFAULT_LEADING;
   const median = gaps[Math.floor(gaps.length / 2)];
   return median === undefined ? fallback : Math.min(median, fallback);
 }
