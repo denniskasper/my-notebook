@@ -20,6 +20,7 @@ export {
   listPromptSources,
   listSources,
   processSource,
+  readWebPage,
   retrySource,
   setSourceEnabled,
   type AddPdfResult,
@@ -28,6 +29,7 @@ export {
   type PromptSource,
   type SetEnabledResult,
   type Source,
+  type WebPageResult,
 } from './store';
 export { fitsTokenCap } from './token-cap';
 export { startStaleSourceSweep } from './sweep';

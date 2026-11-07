@@ -14,5 +14,5 @@ export {
   type SpendBlock,
   type SpendLimits,
 } from './limits';
-export { costMicroUsd, estimateOutputTokens, type TokenUsage } from './price';
+export { costMicroUsd, estimateOutputTokens, WEB_SEARCH_MICRO_USD, type TokenUsage } from './price';
 export { recordUsage, spendSince, type UsageEvent, type UsageFeature } from './store';

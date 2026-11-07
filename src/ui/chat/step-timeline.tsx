@@ -4,7 +4,7 @@ import { Check, ChevronRight, X } from 'lucide-react';
 import { useId, useState } from 'react';
 
 import { cn } from '@/ui/cn';
-import { plural, stepLabel, strings } from '@/ui/strings';
+import { stepLabel, stepSummary, strings } from '@/ui/strings';
 
 import type { StepView } from './events';
 
@@ -12,13 +12,15 @@ type Props = {
   steps: StepView[];
   /** While the run goes on, every Step shows; afterwards they fold into a count. */
   live: boolean;
+  /** What the run cost, shown next to the folded count once known. */
+  costMicroUsd: number | null;
 };
 
 /**
  * The Steps of an Agent run on the answer's rail: the running one in full
  * colour with a spinner, finished ones quieter with ✓ or ✗.
  */
-export function StepTimeline({ steps, live }: Props) {
+export function StepTimeline({ steps, live, costMicroUsd }: Props) {
   const [open, setOpen] = useState(false);
   const listId = useId();
   if (steps.length === 0) return null;
@@ -43,7 +45,7 @@ export function StepTimeline({ steps, live }: Props) {
               open && 'rotate-90',
             )}
           />
-          {plural(steps.length, strings.agent.stepCount)}
+          <span className="tabular-nums">{stepSummary(steps.length, costMicroUsd)}</span>
         </button>
       )}
       {expanded && (

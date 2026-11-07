@@ -7,7 +7,14 @@ import { createVisitor } from '@/modules/visitors';
 import { closeDb } from '@/platform/db';
 import { resetDatabase } from '@/test/database';
 
-import { addUrlSource, getSourceWithPassages, processSource, retrySource, type Source } from '.';
+import {
+  addUrlSource,
+  getSourceWithPassages,
+  processSource,
+  readWebPage,
+  retrySource,
+  type Source,
+} from '.';
 
 // The integration project lets the guarded fetcher reach 127.0.0.1 on this port only.
 const PORT = Number(process.env.URL_FETCH_TEST_LOOPBACK_PORT);
@@ -156,5 +163,28 @@ describe('processing a URL Source', () => {
     await retrySource(visitor, notebook, source.id);
     expect(await processSource(source.id)).toMatchObject({ status: 'ready' });
     expect((await getSourceWithPassages(visitor, notebook, source.id))?.passages).toHaveLength(2);
+  });
+});
+
+describe('readWebPage', () => {
+  it('reads a page’s article as text without adding a Source', async () => {
+    expect(await readWebPage(`${ORIGIN}/weiter`)).toEqual({
+      ok: true,
+      url: `${ORIGIN}/artikel`,
+      title: 'Die Wärmewende',
+      text:
+        'Die Wärmewende ist der Umbau der Heizungen auf erneuerbare Energien, Haus für Haus und Straße für Straße.\n\n' +
+        'Kommunen legen bis 2028 Wärmepläne vor, die zeigen, wo Wärmenetze entstehen und wo Wärmepumpen sinnvoll sind.',
+    });
+  });
+
+  it.each([
+    ['http://169.254.169.254/latest/meta-data/', 'url_not_allowed'],
+    [`${ORIGIN}/metadaten`, 'url_not_allowed'],
+    [`${ORIGIN}/bericht.pdf`, 'url_not_html'],
+    [`${ORIGIN}/leer`, 'url_no_content'],
+    ['keine Adresse', 'invalid_url'],
+  ])('refuses %s with %s', async (url, error) => {
+    expect(await readWebPage(url)).toEqual({ ok: false, error });
   });
 });

@@ -56,6 +56,7 @@ type Pending = {
   parts: MessagePartView[];
   status: MessageView['status'];
   errorCode: ErrorCode | null;
+  costMicroUsd: number | null;
 };
 
 /** The Notebook's Chat: the conversation, the streaming answer and the composer. */
@@ -117,6 +118,7 @@ export function ChatPanel({
       parts: [],
       status: 'streaming',
       errorCode: null,
+      costMicroUsd: null,
     });
     stick();
 
@@ -144,8 +146,8 @@ export function ChatPanel({
         throw new Error(`Chat request failed: ${response.status}`);
       for await (const event of readSseEvents(response.body, chatEventSchema)) {
         if (event.type === 'started') started = true;
-        // A Note the Agent wrote shows up in the Notes tab right away.
-        if (event.type === 'note_created') router.refresh();
+        // A Note or Source the Agent added shows up in the Notes tab or sidebar right away.
+        if (event.type === 'note_created' || event.type === 'source_added') router.refresh();
         if (event.type === 'error' && !started) refuse(event.error, event.retryAt);
         else setPending((current) => current && apply(current, event));
       }
@@ -332,11 +334,14 @@ function apply(pending: Pending, event: ChatEvent): Pending {
       return { ...pending, parts };
     }
     case 'note_created':
+    case 'source_added':
       return pending;
-    case 'done':
+    case 'done': {
+      const costMicroUsd = event.costMicroUsd ?? null;
       // A stop the Visitor asked for already shows as stopped.
-      if (pending.status !== 'streaming') return pending;
-      return { ...pending, status: event.status, errorCode: event.reason ?? null };
+      if (pending.status !== 'streaming') return { ...pending, costMicroUsd };
+      return { ...pending, status: event.status, errorCode: event.reason ?? null, costMicroUsd };
+    }
     case 'error':
       return { ...pending, status: 'failed', errorCode: event.error };
   }
@@ -365,6 +370,7 @@ function pendingViews(pending: Pending): MessageView[] {
       status: 'complete',
       errorCode: null,
       parts: [{ type: 'text', text: pending.question, citations: [] }],
+      costMicroUsd: null,
       stored: false,
     },
     {
@@ -374,6 +380,7 @@ function pendingViews(pending: Pending): MessageView[] {
       status: pending.status,
       errorCode: pending.errorCode,
       parts: pending.parts,
+      costMicroUsd: pending.costMicroUsd,
       stored: false,
     },
   ];

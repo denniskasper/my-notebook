@@ -5,7 +5,7 @@ import { db, type Database } from '@/platform/db';
 import { env } from '@/platform/env';
 import { llm } from '@/platform/llm';
 import { logger } from '@/platform/logging';
-import { checkWebPageUrl, fetchWebPage } from '@/platform/web';
+import { checkWebPageUrl, fetchWebPage, type FetchPageError } from '@/platform/web';
 
 import {
   sourceTextSchema,
@@ -192,6 +192,24 @@ export async function processSource(sourceId: string): Promise<Source | null> {
   });
 }
 
+export type WebPageResult =
+  | { ok: true; url: string; title: string | null; text: string }
+  | { ok: false; error: FetchPageError | 'url_no_content' };
+
+/**
+ * Reads a web page's article through the guarded fetcher, without adding it:
+ * the URL it was served from, its title and its text, paragraphs separated by
+ * blank lines.
+ */
+export async function readWebPage(url: string): Promise<WebPageResult> {
+  const fetched = await fetchWebPage(url);
+  if (!fetched.ok) return { ok: false, error: fetched.error };
+  const { page } = fetched;
+  const article = extractArticle(page.body, page.contentType, page.url);
+  if (!article) return { ok: false, error: 'url_no_content' };
+  return { ok: true, url: page.url, title: article.title, text: article.text };
+}
+
 async function passageTexts(sourceId: string): Promise<string[]> {
   const rows = await db()
     .select({ text: passages.text })
@@ -212,13 +230,11 @@ async function fetchPassages(
   if (!source || source.status !== 'processing') return null;
   if (source.kind !== 'url' || source.url === null) return { texts: [] };
 
-  const fetched = await fetchWebPage(source.url);
-  if (!fetched.ok) {
-    logger().info({ event: 'source.fetch_failed', sourceId, errorCode: fetched.error });
-    return { errorCode: fetched.error };
+  const article = await readWebPage(source.url);
+  if (!article.ok) {
+    logger().info({ event: 'source.fetch_failed', sourceId, errorCode: article.error });
+    return { errorCode: article.error };
   }
-  const article = extractArticle(fetched.page.body, fetched.page.contentType, fetched.page.url);
-  if (!article) return { errorCode: 'url_no_content' };
   const drafts = splitIntoPassages(article.text);
   if (drafts.length === 0) return { errorCode: 'url_no_content' };
 

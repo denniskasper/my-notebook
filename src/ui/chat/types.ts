@@ -15,6 +15,8 @@ export type MessageView = {
   status: 'streaming' | 'complete' | 'failed' | 'stopped';
   errorCode: ErrorCode | null;
   parts: MessagePartView[];
+  /** What an Agent run was charged, in micro-dollars; null while it runs or if unknown. */
+  costMicroUsd: number | null;
   /** False while the answer exists only in the browser (it can't be saved as a Note yet). */
   stored: boolean;
 };

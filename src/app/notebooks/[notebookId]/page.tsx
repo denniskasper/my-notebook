@@ -93,6 +93,7 @@ function toMessageView(message: ChatMessage): MessageView {
     errorCode: message.errorCode === null ? null : toErrorCode(message.errorCode),
     // Text parts and Steps have the same shape in the module and the view.
     parts: message.parts,
+    costMicroUsd: message.costMicroUsd,
     stored: true,
   };
 }

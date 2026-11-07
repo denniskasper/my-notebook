@@ -58,6 +58,9 @@ Set on the running container. Names only; values live in the deployment platform
 | `AGENT_MAX_BUDGET_USD` | no | Spend per Agent run, in USD; `0.3` |
 | `AGENT_TIMEOUT_SECONDS` | no | Wall-clock time per Agent run; `180` |
 | `AGENT_MAX_NOTES` | no | Notes one Agent run may write; `2` |
+| `AGENT_MAX_WEB_SEARCHES` | no | Web searches per Agent run ($0.01 each); `3` |
+| `AGENT_MAX_PAGE_READS` | no | Web pages one Agent run may read; `5` |
+| `AGENT_MAX_SOURCES_ADDED` | no | Web pages one Agent run may add as Sources; `2` |
 | `CLAUDE_CODE_OAUTH_TOKEN` | **never** | The server refuses to start in production when it is set |
 
 Never set `URL_FETCH_TEST_LOOPBACK_PORT` on a deployment: it lets the guarded URL fetcher reach one loopback port and exists only for the integration and e2e fixtures (the server refuses it with `LLM_MODE=real`).
