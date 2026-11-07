@@ -18,12 +18,7 @@ type Props = {
 };
 
 /** Adds a web page as a new Source by its address; the page is fetched while processing. */
-export function AddUrlSourceForm({
-  notebookId,
-  limits,
-  addUrlSource,
-  onAdded,
-}: Props) {
+export function AddUrlSourceForm({ notebookId, limits, addUrlSource, onAdded }: Props) {
   const [result, action] = useActionState<ActionResult, FormData>(async (previous, formData) => {
     const next = await addUrlSource(previous, formData);
     if (next?.ok) onAdded();

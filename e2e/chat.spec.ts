@@ -11,7 +11,7 @@ test('a Visitor asks a question, opens a Citation in the reader and keeps it aft
   await page.getByRole('button', { name: strings.welcome.cta }).click();
   await expect(page).toHaveURL(/\/notebooks\/[0-9a-f-]{36}$/);
 
-  await page.getByRole('main').getByRole('button', { name: strings.sources.kinds.text }).click();
+  await page.getByRole('button', { name: strings.sources.kinds.text }).click();
   const dialog = page.getByRole('dialog', { name: strings.sources.addText.title });
   await dialog.getByLabel(strings.sources.addText.titleLabel).fill(title);
   await dialog

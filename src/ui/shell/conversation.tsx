@@ -16,9 +16,7 @@ export function EmptyConversation({ addSource }: { addSource: ReactNode }) {
           <p className="mt-3 max-w-[54ch] text-[13.5px] leading-[1.6] text-muted">
             {conversation.emptyBody}
           </p>
-          <div className="mt-7 flex flex-wrap gap-2">
-            {addSource}
-          </div>
+          <div className="mt-7 flex flex-wrap gap-2">{addSource}</div>
         </section>
       </div>
       <Composer />
