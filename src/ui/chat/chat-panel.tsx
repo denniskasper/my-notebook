@@ -10,6 +10,7 @@ import { errorMessage, strings, type ErrorCode } from '@/ui/strings';
 
 import { chatEventSchema, type ChatEvent } from './events';
 import { Message } from './message';
+import type { SaveAsNote } from './save-as-note';
 import type { MessagePartView, MessageView, OpenCitation } from './types';
 
 // A server-side answer that is still streaming (e.g. after a reload) is polled at this pace.
@@ -30,6 +31,7 @@ type Props = {
   sourceSummary: string;
   questionMaxLength: number;
   clearChat: (formData: FormData) => Promise<void>;
+  saveAsNote: SaveAsNote;
 };
 
 /** The question being answered right now, until the stored conversation has it. */
@@ -52,6 +54,7 @@ export function ChatPanel({
   sourceSummary,
   questionMaxLength,
   clearChat,
+  saveAsNote,
 }: Props) {
   const router = useRouter();
   const [draft, setDraft] = useState('');
@@ -165,6 +168,7 @@ export function ChatPanel({
                 notebookId={notebookId}
                 existingSourceIds={sources}
                 openCitation={openCitation}
+                saveAsNote={saveAsNote}
               />
             ))}
           </div>
@@ -291,6 +295,7 @@ function pendingViews(pending: Pending): MessageView[] {
       status: 'complete',
       errorCode: null,
       parts: [{ text: pending.question, citations: [] }],
+      stored: false,
     },
     {
       id: pending.assistantMessageId ?? 'pending-answer',
@@ -298,6 +303,7 @@ function pendingViews(pending: Pending): MessageView[] {
       status: pending.status,
       errorCode: pending.errorCode,
       parts: pending.parts,
+      stored: false,
     },
   ];
 }

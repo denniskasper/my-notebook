@@ -20,3 +20,9 @@ export function parseReaderParams(params: SearchParams): {
     .map(Number);
   return { sourceId: sourceId.data, ordinals: [...new Set(ordinals)].sort((a, b) => a - b) };
 }
+
+/** `?note=<id>` opens a Note in the Notes tab (e.g. right after saving an answer). */
+export function parseNoteParam(params: SearchParams): string | null {
+  const noteId = z.uuid().safeParse(first(params.note));
+  return noteId.success ? noteId.data : null;
+}

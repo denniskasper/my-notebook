@@ -9,19 +9,23 @@ type Props = {
   closeButton: ReactNode;
   /** The Source reader, or null when no Source is open. */
   reader: ReactNode;
+  /** The Notes tab. */
+  notes: ReactNode;
   sourceCount: number;
-  /** Changes whenever a Source (or Passage) is opened; brings the Sources tab to the front. */
-  readerKey: string | null;
+  /** Changes whenever a Source (or Passage) or a Note is opened; brings its tab to the front. */
+  focus: DrawerFocus;
 };
 
-/** Source reader, Studio outputs and Notes. Studio and Notes wait for their slices. */
-export function Drawer({ closeButton, reader, sourceCount, readerKey }: Props) {
+export type DrawerFocus = { key: string; tab: 'sources' | 'notes' } | null;
+
+/** Source reader, Studio outputs and Notes. Studio waits for its slice. */
+export function Drawer({ closeButton, reader, notes, sourceCount, focus }: Props) {
   const { tabs } = strings.drawer;
-  const [tab, setTab] = useState('sources');
-  const [shownKey, setShownKey] = useState(readerKey);
-  if (readerKey !== shownKey) {
-    setShownKey(readerKey);
-    if (readerKey) setTab('sources');
+  const [tab, setTab] = useState<string>(focus?.tab ?? 'sources');
+  const [shownKey, setShownKey] = useState(focus?.key ?? null);
+  if ((focus?.key ?? null) !== shownKey) {
+    setShownKey(focus?.key ?? null);
+    if (focus) setTab(focus.tab);
   }
   return (
     <Tabs value={tab} onValueChange={setTab} className="flex min-h-0 flex-1 flex-col">
@@ -42,9 +46,7 @@ export function Drawer({ closeButton, reader, sourceCount, readerKey }: Props) {
       <TabsContent value="studio">
         <EmptyTab>{strings.drawer.studioEmpty}</EmptyTab>
       </TabsContent>
-      <TabsContent value="notes">
-        <EmptyTab>{strings.drawer.notesEmpty}</EmptyTab>
-      </TabsContent>
+      <TabsContent value="notes">{notes}</TabsContent>
     </Tabs>
   );
 }

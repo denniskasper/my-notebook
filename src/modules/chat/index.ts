@@ -8,5 +8,12 @@ export {
 export { citationSchema, toCitation, type Citation, type PromptDocument } from './citations';
 export type { MessagePart, TextPart } from './parts';
 export { trimHistory, type HistoryTurn } from './prompt';
-export { clearChat, failStaleMessages, listMessages, type ChatMessage } from './store';
+export {
+  clearChat,
+  failStaleMessages,
+  getAnswer,
+  listMessages,
+  type Answer,
+  type ChatMessage,
+} from './store';
 export { startStaleMessageSweep } from './sweep';

@@ -11,6 +11,8 @@ export type MessageView = {
   status: 'streaming' | 'complete' | 'failed' | 'stopped';
   errorCode: ErrorCode | null;
   parts: MessagePartView[];
+  /** False while the answer exists only in the browser (it can't be saved as a Note yet). */
+  stored: boolean;
 };
 
 /** The Citation whose Passages the reader shows right now (from the URL). */
