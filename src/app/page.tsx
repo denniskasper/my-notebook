@@ -1,3 +1,4 @@
+import { buildInfo } from '@/platform/build';
 import { AppShell, Sidebar, Welcome } from '@/ui/shell';
 import { errorMessage } from '@/ui/strings';
 
@@ -16,7 +17,12 @@ export default async function HomePage({ searchParams }: Props) {
     <AppShell
       banner={banner}
       sidebar={
-        <Sidebar notebooks={notebooks} createNotebook={createNotebookAction} footer={meter} />
+        <Sidebar
+          notebooks={notebooks}
+          createNotebook={createNotebookAction}
+          footer={meter}
+          build={buildInfo()}
+        />
       }
       header={null}
     >

@@ -1,6 +1,8 @@
 import { expect, test } from '@playwright/test';
 
+import packageJson from '../package.json' with { type: 'json' };
 import { strings } from '../src/ui/strings';
+import { E2E_COMMIT } from './build';
 
 test('a Visitor creates a Notebook, renames it and finds it again', async ({ page }) => {
   const title = `Wärmewende ${Date.now()}`;
@@ -21,6 +23,11 @@ test('a Visitor creates a Notebook, renames it and finds it again', async ({ pag
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(title);
   const sidebar = page.getByRole('complementary', { name: strings.sidebar.label });
   await expect(sidebar.getByRole('link', { name: title })).toBeVisible();
+
+  // The running build, linked to its commit.
+  const version = sidebar.getByRole('link', { name: `v${packageJson.version} · e2e0000` });
+  await expect(version).toBeVisible();
+  await expect(version).toHaveAttribute('href', new RegExp(`/commit/${E2E_COMMIT}$`));
 
   // The Visitor cookie brings the Notebook back on the next visit.
   await page.goto('/');

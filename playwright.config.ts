@@ -1,6 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
 
+import { E2E_COMMIT } from './e2e/build';
+
 const PORT = 3100;
+
 const databaseUrl = process.env.TEST_DATABASE_URL;
 if (!databaseUrl) throw new Error('TEST_DATABASE_URL must be set for e2e tests');
 
@@ -27,7 +30,7 @@ export default defineConfig({
       PORT: String(PORT),
       HOSTNAME: '127.0.0.1',
       IP_HASH_SECRET: 'e2e-ip-hash-secret-not-for-production',
-      COMMIT: 'e2e',
+      COMMIT: E2E_COMMIT,
       LOG_LEVEL: 'warn',
       // A tiny Daily allowance: a Visitor's first question uses it up (e2e/allowance.spec.ts).
       DAILY_ALLOWANCE_USD: '0.000001',

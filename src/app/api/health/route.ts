@@ -1,10 +1,8 @@
 import { NextResponse } from 'next/server';
 
+import { buildInfo } from '@/platform/build';
 import { pingDatabase } from '@/platform/db';
-import { env } from '@/platform/env';
 import { requestLogger } from '@/platform/logging';
-
-import packageJson from '../../../../package.json';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,8 +12,7 @@ export async function GET() {
   const body = {
     status: database === 'ok' ? 'ok' : 'degraded',
     database,
-    version: packageJson.version,
-    commit: env().COMMIT,
+    ...buildInfo(),
   };
   if (database !== 'ok') (await requestLogger()).warn({ event: 'health.degraded', ...body });
   return NextResponse.json(body, {
