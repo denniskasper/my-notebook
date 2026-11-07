@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 
-import { getSpendStatus, type SpendStatus } from '@/modules/usage';
+import { getSpendStatus, spentPercent, type SpendStatus } from '@/modules/usage';
 import { pingDatabase } from '@/platform/db';
 import { env } from '@/platform/env';
+import { logger } from '@/platform/logging';
 import { cn } from '@/ui/cn';
 import { format, formatClock, formatUsd, strings } from '@/ui/strings';
 
@@ -15,14 +16,10 @@ export const metadata: Metadata = { title: `${strings.status.title} – ${string
 async function loadSpend(): Promise<SpendStatus['demoBudget'] | null> {
   try {
     return (await getSpendStatus(null)).demoBudget;
-  } catch {
+  } catch (error) {
+    logger().error({ event: 'status.spend_failed', err: error });
     return null;
   }
-}
-
-function spentPercent(spent: number, limit: number): number {
-  if (limit <= 0) return 100;
-  return Math.min(100, Math.round((spent / limit) * 100));
 }
 
 /** The public Status page: running commit, database health and AI spend against the Demo budget. */

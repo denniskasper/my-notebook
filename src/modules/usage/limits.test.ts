@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { rateLimitRetryAt, spendBlock } from '.';
+import { rateLimitRetryAt, spendBlock, spentPercent } from '.';
 
 describe('spendBlock', () => {
   const limits = {
@@ -61,5 +61,21 @@ describe('rateLimitRetryAt', () => {
         now,
       }),
     ).toEqual(new Date('2026-11-07T12:20:00Z'));
+  });
+});
+
+describe('spentPercent', () => {
+  it('rounds the share of the cap to a whole percent', () => {
+    expect(spentPercent(0, 2_000_000)).toBe(0);
+    expect(spentPercent(421_337, 2_000_000)).toBe(21);
+    expect(spentPercent(1_999_999, 2_000_000)).toBe(100);
+  });
+
+  it('stops at 100 once the cap is passed', () => {
+    expect(spentPercent(2_500_000, 2_000_000)).toBe(100);
+  });
+
+  it('counts a cap of zero as spent', () => {
+    expect(spentPercent(0, 0)).toBe(100);
   });
 });

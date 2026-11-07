@@ -25,19 +25,18 @@ export async function createVisitor(input: { ipHash: string | null }): Promise<s
 }
 
 // `last_seen_at` only feeds the 30-day purge, so hourly precision is plenty and
-// most requests write nothing.
-const TOUCH_EVERY_MS = 60 * 60 * 1000;
+// most requests write nothing. Compared on the database clock, the one that writes it.
+const TOUCH_EVERY = sql.raw(`interval '1 hour'`);
 
 /**
  * Marks the Visitor as active now, at most once an hour; false if it no longer
  * exists (e.g. purged). One round trip, whether or not it writes.
  */
 export async function touchVisitor(visitorId: string): Promise<boolean> {
-  const staleBefore = new Date(Date.now() - TOUCH_EVERY_MS);
   const result = await db().execute<{ found: boolean }>(sql`
     with touched as (
       update ${visitors} set last_seen_at = now()
-      where id = ${visitorId} and last_seen_at < ${staleBefore.toISOString()}
+      where id = ${visitorId} and last_seen_at < now() - ${TOUCH_EVERY}
       returning id
     )
     select exists (select 1 from ${visitors} where id = ${visitorId}) as found

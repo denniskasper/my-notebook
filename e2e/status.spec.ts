@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-import { strings } from '../src/ui/strings';
+import { format, formatUsd, strings } from '../src/ui/strings';
 
 test('anyone can open the Status page and see the commit, database and AI spend', async ({
   page,
@@ -15,9 +15,13 @@ test('anyone can open the Status page and see the commit, database and AI spend'
   await expect(facts.filter({ hasText: 'e2e' })).toBeVisible();
   await expect(facts.filter({ hasText: strings.status.database.ok })).toBeVisible();
 
-  // Default caps: $2 per day, $13 in total.
+  // Default caps: $2 per day, $13 in total. Other specs spend, so only the cap is asserted.
+  const spendOf = (limitMicroUsd: number) => {
+    const suffix = format(strings.status.spendOf, { spent: '', limit: formatUsd(limitMicroUsd) });
+    return new RegExp(`${suffix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`);
+  };
   const today = page.getByRole('meter', { name: strings.status.spendToday });
-  await expect(today).toHaveAttribute('aria-valuetext', /von 2,00\s\$/);
+  await expect(today).toHaveAttribute('aria-valuetext', spendOf(2_000_000));
   const total = page.getByRole('meter', { name: strings.status.spendTotal });
-  await expect(total).toHaveAttribute('aria-valuetext', /von 13,00\s\$/);
+  await expect(total).toHaveAttribute('aria-valuetext', spendOf(13_000_000));
 });
