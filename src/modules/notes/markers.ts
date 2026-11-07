@@ -2,12 +2,16 @@ import { z } from 'zod';
 
 import { citationSchema, type Citation, type MessagePart } from '@/modules/chat';
 
+const MARKER_NUMBER = '[1-9]\\d*';
+const MARKER = new RegExp(`\\[(${MARKER_NUMBER})\\]`, 'g');
+
 /** A Note's Citations: marker number (as in `[1]`) → Citation snapshot. */
-export const noteCitationsSchema = z.record(z.string().regex(/^[1-9]\d*$/), citationSchema);
+export const noteCitationsSchema = z.record(
+  z.string().regex(new RegExp(`^${MARKER_NUMBER}$`)),
+  citationSchema,
+);
 
 export type NoteCitations = z.infer<typeof noteCitationsSchema>;
-
-const MARKER = /\[([1-9]\d*)\]/g;
 
 /** The marker numbers the body references, as strings. */
 function referencedMarkers(body: string): Set<string> {

@@ -166,7 +166,8 @@ function noteInputError(error: z.ZodError): ActionResult {
   const field = error.issues[0]?.path[0];
   if (field === 'title') return { ok: false, error: 'invalid_note_title' };
   if (field === 'body') return { ok: false, error: 'invalid_note_body' };
-  return { ok: false, error: 'note_not_found' };
+  if (field === 'noteId') return { ok: false, error: 'note_not_found' };
+  return { ok: false, error: 'not_found' };
 }
 
 /** Creates a hand-written Note and opens it in the Notes tab. */

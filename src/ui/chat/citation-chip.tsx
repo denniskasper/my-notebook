@@ -20,7 +20,7 @@ type Props = {
   /** Its Passages are the ones the reader shows right now. */
   open: boolean;
   /** Query parameters the link keeps, e.g. the open Note. */
-  keep?: Record<string, string>;
+  preserveQuery?: Record<string, string>;
 };
 
 const CHIP =
@@ -28,7 +28,14 @@ const CHIP =
 const FILLED = 'border-hl bg-hl text-[#1a1606]';
 
 /** An amber Citation chip; hovering or focusing it shows the cited Source and quote. */
-export function CitationChip({ n, citation, notebookId, sourceExists, open, keep = {} }: Props) {
+export function CitationChip({
+  n,
+  citation,
+  notebookId,
+  sourceExists,
+  open,
+  preserveQuery = {},
+}: Props) {
   if (!sourceExists) {
     return (
       <QuoteTooltip citation={citation} deleted>
@@ -49,7 +56,7 @@ export function CitationChip({ n, citation, notebookId, sourceExists, open, keep
   }
 
   const query = new URLSearchParams({
-    ...keep,
+    ...preserveQuery,
     source: citation.sourceId,
     p: citation.ordinals.join(','),
   });

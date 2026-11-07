@@ -1,6 +1,6 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 
-import { answerQuestion, listMessages } from '@/modules/chat';
+import { answerQuestion, failStaleMessages, listMessages, type ChatEvent } from '@/modules/chat';
 import { createNotebook } from '@/modules/notebooks';
 import { addTextSource, processSource } from '@/modules/sources';
 import { createVisitor } from '@/modules/visitors';
@@ -90,7 +90,10 @@ describe('updateNote and deleteNote', () => {
 });
 
 describe('saveAnswerAsNote', () => {
-  async function askOnce(question: string): Promise<{ sourceId: string; answerId: string }> {
+  async function askOnce(
+    question: string,
+    onEvent: (event: ChatEvent) => void | Promise<void> = () => undefined,
+  ): Promise<{ sourceId: string; answerId: string }> {
     const source = await addTextSource(visitor, notebook, {
       title: 'Heizungsgesetz',
       text: 'Erster Absatz.\n\nZweiter Absatz.',
@@ -99,7 +102,7 @@ describe('saveAnswerAsNote', () => {
     await processSource(source.id);
     await answerQuestion(
       { visitorId: visitor, notebookId: notebook, question },
-      { signal: new AbortController().signal, onEvent: () => undefined },
+      { signal: new AbortController().signal, onEvent },
     );
     const answer = (await listMessages(visitor, notebook)).find((m) => m.role === 'assistant');
     if (!answer) throw new Error('No answer');
@@ -130,5 +133,15 @@ describe('saveAnswerAsNote', () => {
       await saveAnswerAsNote(visitor, notebook, '0193a5f0-0000-7000-8000-00000000dead'),
     ).toBeNull();
     expect(await listNotes(visitor, notebook)).toEqual([]);
+  });
+
+  it('refuses a failed answer', async () => {
+    const { answerId } = await askOnce('Was gilt?', async (event) => {
+      if (event.type === 'started') {
+        await failStaleMessages({ olderThan: new Date(Date.now() + 1_000) });
+      }
+    });
+
+    expect(await saveAnswerAsNote(visitor, notebook, answerId)).toBeNull();
   });
 });

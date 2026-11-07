@@ -88,7 +88,6 @@ export const strings = {
     saveAsNote: 'Als Notiz speichern',
   },
   notes: {
-    label: 'Notizen',
     list: 'Alle Notizen',
     new: 'Neue Notiz',
     back: 'Alle Notizen',

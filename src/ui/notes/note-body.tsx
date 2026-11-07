@@ -69,13 +69,8 @@ function BlockView({ block, ...context }: { block: Block } & Props) {
   }
 }
 
-function InlineView({
-  inline,
-  note,
-  notebookId,
-  existingSourceIds,
-  openCitation,
-}: { inline: Inline[] } & Props) {
+function InlineView({ inline, ...context }: { inline: Inline[] } & Props) {
+  const { note, notebookId, existingSourceIds, openCitation } = context;
   return inline.map((token, index) => {
     switch (token.type) {
       case 'text':
@@ -83,11 +78,15 @@ function InlineView({
       case 'strong':
         return (
           <strong key={index} className="font-semibold text-text">
-            {token.text}
+            <InlineView inline={token.inline} {...context} />
           </strong>
         );
       case 'em':
-        return <em key={index}>{token.text}</em>;
+        return (
+          <em key={index}>
+            <InlineView inline={token.inline} {...context} />
+          </em>
+        );
       case 'code':
         return (
           <code key={index} className="rounded-[3px] bg-raise px-1 font-ui text-[12.5px]">
@@ -105,7 +104,7 @@ function InlineView({
             notebookId={notebookId}
             sourceExists={existingSourceIds.has(citation.sourceId)}
             open={isOpenCitation(openCitation, citation.sourceId, citation.ordinals)}
-            keep={{ note: note.id }}
+            preserveQuery={{ note: note.id }}
           />
         );
       }

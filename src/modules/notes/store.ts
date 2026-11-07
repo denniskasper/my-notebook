@@ -77,7 +77,7 @@ export async function updateNote(
   visitorId: string,
   notebookId: string,
   noteId: string,
-  input: { title: string; body: string },
+  input: Omit<NoteInput, 'citations'>,
 ): Promise<Note | null> {
   if (!(await getNotebook(visitorId, notebookId))) return null;
   const title = noteTitleSchema.parse(input.title);

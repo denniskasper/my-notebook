@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, lt, ne } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, lt } from 'drizzle-orm';
 
 import { getNotebook } from '@/modules/notebooks';
 import { db } from '@/platform/db';
@@ -47,7 +47,7 @@ export type Answer = { question: string | null; parts: MessagePart[] };
 
 /**
  * The answer `messageId` with its question; null for a question, an answer
- * still streaming, or a message outside the Visitor's Notebook.
+ * still streaming or failed, or a message outside the Visitor's Notebook.
  */
 export async function getAnswer(
   visitorId: string,
@@ -63,7 +63,7 @@ export async function getAnswer(
         eq(messages.notebookId, notebookId),
         eq(messages.id, messageId),
         eq(messages.role, 'assistant'),
-        ne(messages.status, 'streaming'),
+        inArray(messages.status, ['complete', 'stopped']),
       ),
     );
   if (!row) return null;

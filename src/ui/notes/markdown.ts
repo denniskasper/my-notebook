@@ -5,7 +5,9 @@
  */
 
 export type Inline =
-  { type: 'text' | 'strong' | 'em' | 'code'; text: string } | { type: 'citation'; marker: string };
+  | { type: 'text' | 'code'; text: string }
+  | { type: 'strong' | 'em'; inline: Inline[] }
+  | { type: 'citation'; marker: string };
 
 export type Block =
   | { type: 'heading'; level: 1 | 2 | 3; inline: Inline[] }
@@ -72,10 +74,12 @@ function parseInline(text: string, markers: ReadonlySet<string>): Inline[] {
     pushText(text.slice(at, match.index));
     at = match.index + match[0].length;
     const [whole, strong, em, emUnderscore, code, marker] = match;
-    if (strong !== undefined) inline.push({ type: 'strong', text: strong });
-    else if (em !== undefined) inline.push({ type: 'em', text: em });
-    else if (emUnderscore !== undefined) inline.push({ type: 'em', text: emUnderscore });
-    else if (code !== undefined) inline.push({ type: 'code', text: code });
+    // Emphasis is parsed again so a marker inside it still renders as a chip.
+    if (strong !== undefined) inline.push({ type: 'strong', inline: parseInline(strong, markers) });
+    else if (em !== undefined) inline.push({ type: 'em', inline: parseInline(em, markers) });
+    else if (emUnderscore !== undefined) {
+      inline.push({ type: 'em', inline: parseInline(emUnderscore, markers) });
+    } else if (code !== undefined) inline.push({ type: 'code', text: code });
     else if (marker !== undefined && markers.has(marker)) {
       inline.push({ type: 'citation', marker });
     } else pushText(whole);

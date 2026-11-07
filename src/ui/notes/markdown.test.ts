@@ -30,13 +30,32 @@ describe('parseNoteMarkdown', () => {
       {
         type: 'paragraph',
         inline: [
-          { type: 'strong', text: 'Fest' },
+          { type: 'strong', inline: [{ type: 'text', text: 'Fest' }] },
           { type: 'text', text: ' und ' },
-          { type: 'em', text: 'kursiv' },
+          { type: 'em', inline: [{ type: 'text', text: 'kursiv' }] },
           { type: 'text', text: ' mit ' },
           { type: 'code', text: 'code' },
           { type: 'citation', marker: '1' },
           { type: 'text', text: '[7].' },
+        ],
+      },
+    ]);
+  });
+
+  it('keeps a marker inside emphasis a Citation', () => {
+    expect(parseNoteMarkdown('**Frist [1]** und _Ende [2]_', new Set(['1']))).toEqual([
+      {
+        type: 'paragraph',
+        inline: [
+          {
+            type: 'strong',
+            inline: [
+              { type: 'text', text: 'Frist ' },
+              { type: 'citation', marker: '1' },
+            ],
+          },
+          { type: 'text', text: ' und ' },
+          { type: 'em', inline: [{ type: 'text', text: 'Ende [2]' }] },
         ],
       },
     ]);
