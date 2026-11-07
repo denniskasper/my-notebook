@@ -16,7 +16,8 @@
 // The loop repeats until no candidate is left that hasn't been tried in this
 // process. Issues unblocked by a merge are picked up by the next run.
 //
-// Usage: pnpm sandcastle  (build the image first: pnpm sandcastle:image)
+// Usage: pnpm sandcastle  (rebuilds the sandbox image first: the server's Docker
+// cleanup after deploys can delete it between runs)
 
 import { resolve } from "node:path";
 import * as sandcastle from "@ai-hero/sandcastle";
