@@ -23,8 +23,9 @@ The keys (`notizen`, `ki-mig`, `wikipedia`, `bnetza`) are the ones `evals.json` 
 
 ## `ki-mig`: KI-MIG (PDF)
 
-- Link: https://www.gesetze-im-internet.de/ki-mig/KI-MIG.pdf (13 pages, text PDF). **Not
-  committed**: download it before recording.
+- Link: https://www.gesetze-im-internet.de/ki-mig/KI-MIG.pdf (13 pages, text PDF). Committed
+  as [`sources/KI-MIG.pdf`](sources/KI-MIG.pdf) (public domain), because the site blocks GitHub's
+  runners and the eval workflow needs it; upload that copy when recording.
 - Ausfertigung 22.07.2026, BGBl. 2026 I Nr. 223, in force 29.07.2026.
 - Attribution (good practice, not required): „Quelle: www.gesetze-im-internet.de (BMJV/BfJ)".
 

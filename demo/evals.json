@@ -5,7 +5,7 @@
       "title": "Meine Notizen zur KI-Verordnung",
       "load": { "file": "sources/meine-notizen.md" }
     },
-    { "key": "ki-mig", "title": "KI-MIG", "load": { "pdf": "local/KI-MIG.pdf" } },
+    { "key": "ki-mig", "title": "KI-MIG", "load": { "pdf": "sources/KI-MIG.pdf" } },
     {
       "key": "wikipedia",
       "title": "Verordnung über künstliche Intelligenz – Wikipedia",
