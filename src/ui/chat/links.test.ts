@@ -22,6 +22,24 @@ describe('splitLinks', () => {
     ]);
   });
 
+  it('splits **bold** spans out of the text, without their asterisks', () => {
+    expect(
+      splitLinks('- **Bundesnetzagentur:** Sie überwacht, siehe https://example.org.'),
+    ).toEqual([
+      { type: 'text', text: '- ' },
+      { type: 'strong', text: 'Bundesnetzagentur:' },
+      { type: 'text', text: ' Sie überwacht, siehe ' },
+      { type: 'link', href: 'https://example.org' },
+      { type: 'text', text: '.' },
+    ]);
+  });
+
+  it('keeps lone or empty asterisks as text', () => {
+    expect(splitLinks('2 * 3 = 6, **** und ** offen')).toEqual([
+      { type: 'text', text: '2 * 3 = 6, **** und ** offen' },
+    ]);
+  });
+
   it('keeps text without addresses as it is', () => {
     expect(splitLinks('Kein Link, nur ftp://x und www.example.org.')).toEqual([
       { type: 'text', text: 'Kein Link, nur ftp://x und www.example.org.' },

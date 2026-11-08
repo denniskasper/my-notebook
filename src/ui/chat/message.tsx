@@ -158,6 +158,10 @@ function TextWithLinks({ text }: { text: string }) {
   return splitLinks(text).map((segment, index) =>
     segment.type === 'text' ? (
       segment.text
+    ) : segment.type === 'strong' ? (
+      <strong key={index} className="font-semibold">
+        {segment.text}
+      </strong>
     ) : (
       <a
         key={index}

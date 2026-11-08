@@ -60,6 +60,15 @@ describe('createMarkerParser', () => {
     expect(render(parser.flush())).toBe('');
   });
 
+  it('holds a marker back when a chunk ends between its two closing brackets', () => {
+    const parser = createMarkerParser((id) => read.get(id));
+    expect(render(parser.push('Das gilt [[p:q1-1]'))).toBe('Das gilt');
+    expect(render(parser.push('] weiter'))).toBe('{Gesetz 1} weiter');
+    const unknown = parse('Erfunden [[p:q9-3]', '] hier.');
+    expect(render(unknown.events)).toBe('Erfunden hier.');
+    expect(unknown.dropped).toBe(1);
+  });
+
   it('merges adjacent markers of one Source into one Citation', () => {
     const { events } = parse('Beides [[p:q1-1]] [[p:q1-0]], dazu [[p:q2-4]][[p:q1-0]].');
     expect(render(events)).toBe('Beides{Gesetz 0,1}, dazu{Förderung 4}{Gesetz 0}.');

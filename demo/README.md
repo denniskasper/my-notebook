@@ -5,7 +5,7 @@ One fixture set feeds the local and e2e seed data, the AI evals and the Loom rec
 | File | What it is |
 | --- | --- |
 | [`sources/meine-notizen.md`](sources/meine-notizen.md) | The pasted-text Source „Meine Notizen zur KI-Verordnung" (first line is the title) |
-| [`sources.md`](sources.md) | All four demo Sources: the PDF link (not committed), the Wikipedia URL, the Bundesnetzagentur press release, with attribution |
+| [`sources.md`](sources.md) | All four demo Sources: the KI-MIG PDF (committed in `sources/`), the Wikipedia URL, the Bundesnetzagentur press release, with attribution |
 | [`evals.json`](evals.json) | About ten eval questions with the Sources to enable, the Sources the Citations must land in and the key facts; validated by `src/demo/evals.ts` |
 | [`storyboard.md`](storyboard.md) | The video, scene by scene |
 | `local/` | Git-ignored: your local copies of the PDF and URL texts for the seed script |
