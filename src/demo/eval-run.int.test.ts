@@ -123,6 +123,8 @@ const evalSet = parseEvalSet({
 const outcome = (result: { checks: { name: string; passed: boolean }[] } | undefined) =>
   Object.fromEntries(result?.checks.map((check) => [check.name, check.passed]) ?? []);
 
+const withoutCount = (cited: string) => cited.replace(/ ×\d+$/, '');
+
 // The fake streams word by word, and a run asks several questions and runs an Agent.
 describe('runEvals', { timeout: 30_000 }, () => {
   it('asks every question in a fresh Notebook with the demo Sources and checks each answer', async () => {
@@ -162,6 +164,16 @@ describe('runEvals', { timeout: 30_000 }, () => {
     expect(report.results.every((result) => result.costMicroUsd > 0)).toBe(true);
     expect(report.visitorId).toEqual(expect.any(String));
     expect(report.notebookId).toEqual(expect.any(String));
+  });
+
+  it('reports which Sources each answer cited and which pages the Agent added', async () => {
+    const report = await runEvals({ demoDir, evalSet, briefing: false });
+
+    const byId = Object.fromEntries(report.results.map((result) => [result.id, result]));
+    expect(byId['zwei-quellen']?.cited.map(withoutCount)).toEqual(['notizen', 'ki-mig']);
+    expect(byId['zwei-quellen']?.added).toEqual([]);
+    expect(byId['agent']?.cited.map(withoutCount)).toContain('bnetza');
+    expect(byId['agent']?.added).toEqual([`${ORIGIN}/ki-verordnung/bundesnetzagentur`]);
   });
 
   it('asks each question without the earlier ones as history', async () => {
