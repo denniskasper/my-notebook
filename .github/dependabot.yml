@@ -1,29 +1,25 @@
 version: 2
 
-# Weekly, one grouped PR per ecosystem (npm majors separately, they need a closer look).
+# Monthly, one grouped PR per ecosystem.
 # The cooldown lets a freshly published release age a week before it is proposed,
 # so a compromised version is more likely to be pulled before it reaches us.
 updates:
   - package-ecosystem: npm
     directory: /
     schedule:
-      interval: weekly
-      day: monday
+      interval: monthly
     cooldown:
       default-days: 7
     commit-message:
       prefix: chore(deps)
     groups:
       npm:
-        update-types: [minor, patch]
-      npm-major:
-        update-types: [major]
+        patterns: ['*']
 
   - package-ecosystem: docker
     directories: [/, /.sandcastle]
     schedule:
-      interval: weekly
-      day: monday
+      interval: monthly
     cooldown:
       default-days: 7
     ignore:
@@ -39,8 +35,7 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
-      day: monday
+      interval: monthly
     cooldown:
       default-days: 7
     commit-message:
