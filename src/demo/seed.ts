@@ -11,10 +11,10 @@ const NOTES_SOURCE_FILE = path.join('sources', 'meine-notizen.md');
 const LOCAL_DIR = 'local';
 const LOCAL_EXTENSIONS = new Set(['.md', '.txt']);
 
-type DemoSource = { title: string; text: string };
+export type DemoSource = { title: string; text: string };
 
 /** A fixture file: the first line (without a leading `#`) is the title, the rest the text. */
-function parseDemoSource(content: string): DemoSource {
+export function parseDemoSource(content: string): DemoSource {
   const [firstLine = '', ...rest] = content.split(/\r?\n/);
   return { title: firstLine.replace(/^#+\s*/, ''), text: rest.join('\n') };
 }

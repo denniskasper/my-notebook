@@ -33,6 +33,10 @@ including the one the Sources don't cover (`expectedSources: []`), so the demo p
 against the real API before recording. A key fact counts as found if the answer contains any of
 its `anyOf` strings.
 
+Each Source's `load` says how `pnpm evals` adds it: a text `file` or a `pdf` (paths relative to
+`demo/`), a web page `url`, or `addedByAgent` for the page the Agent adds itself, recognised by
+its host. Running the evals is described in the [root README](../README.md#ai-evals).
+
 ## Attribution
 
 Use these in the video description; the app itself has no attribution field (the reader links

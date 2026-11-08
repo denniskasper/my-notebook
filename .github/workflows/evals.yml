@@ -1,0 +1,78 @@
+name: Evals
+
+# AI evals against the real API: started by hand only, never on PRs or pushes (they cost money).
+on:
+  workflow_dispatch:
+    inputs:
+      only:
+        description: Comma-separated question ids from demo/evals.json (empty runs all)
+        required: false
+        default: ''
+      briefing:
+        description: Also generate and check a Briefing
+        type: boolean
+        default: true
+
+concurrency:
+  group: evals
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  evals:
+    name: evals
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    # The eval key lives in this environment, in a workspace with its own spend limit.
+    environment: evals
+    services:
+      postgres:
+        image: public.ecr.aws/docker/library/postgres:18
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: my_notebook
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d my_notebook"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+    env:
+      # Throwaway service container; no real credentials.
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/my_notebook
+      LLM_MODE: real
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      LOG_LEVEL: warn
+    steps:
+      - name: Check the eval key
+        run: |
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "::error::Secret ANTHROPIC_API_KEY is not set in the evals environment"
+            exit 1
+          fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:migrate
+      # The KI-MIG PDF is not committed (demo/sources.md); the Wikipedia page is fetched by the app.
+      - name: Download the KI-MIG PDF
+        run: |
+          mkdir -p demo/local
+          curl -fsSL --retry 3 --max-time 60 -o demo/local/KI-MIG.pdf \
+            https://www.gesetze-im-internet.de/ki-mig/KI-MIG.pdf
+      - name: Run the evals
+        env:
+          ONLY: ${{ inputs.only }}
+          BRIEFING: ${{ inputs.briefing }}
+        run: |
+          args=()
+          if [ -n "$ONLY" ]; then args+=(--only "$ONLY"); fi
+          if [ "$BRIEFING" = 'false' ]; then args+=(--no-briefing); fi
+          pnpm evals "${args[@]}"

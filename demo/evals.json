@@ -1,9 +1,23 @@
 {
   "sources": [
-    { "key": "notizen", "title": "Meine Notizen zur KI-Verordnung" },
-    { "key": "ki-mig", "title": "KI-MIG" },
-    { "key": "wikipedia", "title": "Verordnung über künstliche Intelligenz – Wikipedia" },
-    { "key": "bnetza", "title": "Pressemitteilung der Bundesnetzagentur vom 29.07.2026" }
+    {
+      "key": "notizen",
+      "title": "Meine Notizen zur KI-Verordnung",
+      "load": { "file": "sources/meine-notizen.md" }
+    },
+    { "key": "ki-mig", "title": "KI-MIG", "load": { "pdf": "local/KI-MIG.pdf" } },
+    {
+      "key": "wikipedia",
+      "title": "Verordnung über künstliche Intelligenz – Wikipedia",
+      "load": {
+        "url": "https://de.wikipedia.org/wiki/Verordnung_%C3%BCber_k%C3%BCnstliche_Intelligenz"
+      }
+    },
+    {
+      "key": "bnetza",
+      "title": "Pressemitteilung der Bundesnetzagentur vom 29.07.2026",
+      "load": { "addedByAgent": { "host": "www.bundesnetzagentur.de" } }
+    }
   ],
   "questions": [
     {
