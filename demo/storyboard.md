@@ -73,7 +73,7 @@ Audio Overview, only if the stretch was built; otherwise the time goes to engine
 4. **Automatic rollback** (~30 s, pre-recorded): a real PR that breaks `/api/health`, merged then
    reverted; Swarm rolls back and the CI deploy goes red.
 5. **SSRF rejection** (~5 s): add `http://169.254.169.254` as a URL Source → clear German error.
-6. **Status page and uptime check** (~30 s); the backup runbook is only mentioned.
+6. **Status page** (~30 s); the uptime check (UptimeRobot) and the backup runbook are only mentioned.
 
 ## Polish tiers
 

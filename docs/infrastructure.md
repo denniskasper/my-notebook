@@ -8,7 +8,7 @@ How a change travels from an issue to production, where the network boundaries s
 
 Dashed blue arrows are private traffic over the tailnet, orange arrows are public HTTPS into the server, thin black arrows are outbound calls or internal hops. To change the drawing, open [`infrastructure.excalidraw`](infrastructure.excalidraw) in [Excalidraw](https://excalidraw.com) and export it again as SVG with "Embed scene" off and the background on.
 
-- **One public door.** Visitors, the uptime check and CI's health polling all come in through the reverse proxy. Nothing else on the server answers the internet.
+- **One public door.** Visitors, CI's health polling and an uptime check (drawn as intended, [not set up](operations/uptime-check.md)) all come in through the reverse proxy. Nothing else on the server answers the internet.
 - **Deploys travel over the tailnet.** The deploy job joins the tailnet as a short-lived node. An access rule lets that node reach the Dokploy API and nothing else.
 - **Two separate kinds of Claude access.** Agents use a subscription during development. Production uses its own API key with a spend limit and refuses to start if a subscription token is present.
 
@@ -47,5 +47,5 @@ No key is shared between environments, and CI never holds the production LLM key
 ## Left out on purpose
 
 - No staging environment or preview deploys. Production follows `main`.
-- Postgres backups are written up as a runbook but not switched on for this demo.
-- No tracing or metrics stack. JSON logs, the health endpoint, an uptime check and a public status page cover operations.
+- Postgres backups are written up as a [runbook](operations/backup-restore.md) but not switched on for this demo.
+- No tracing or metrics stack. JSON logs, the health endpoint and a public status page cover operations. An external uptime check with UptimeRobot is [described](operations/uptime-check.md) but not set up.

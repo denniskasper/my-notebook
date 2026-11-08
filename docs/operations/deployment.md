@@ -139,11 +139,11 @@ A failed deploy can be retried by re-running the failed jobs of that workflow ru
 
 Done once by hand; record names and facts only, never hostnames or URLs.
 
-- **Project** with a Dokploy-managed **Postgres 18** database (no backups configured; see the backup runbook) and an **Application**:
+- **Project** with a Dokploy-managed **Postgres 18** database (no backups configured; see the [backup runbook](backup-restore.md)) and an **Application**:
   - Source **Docker**, image `ghcr.io/<OWNER>/my-notebook:main`, no registry credentials (the package is public).
   - **Autodeploy off**: only CI deploys, so production only ever runs an image that passed CI.
   - One replica; a domain with HTTPS on container port `3000`.
-  - Environment: `NODE_ENV=production`, `HOSTNAME=0.0.0.0`, `PORT=3000`, `LOG_LEVEL=info`, `LLM_MODE=fake`, `DATABASE_URL` (the database's internal URL), `IP_HASH_SECRET` (generated, 32+ characters).
+  - Environment: `NODE_ENV=production`, `HOSTNAME=0.0.0.0`, `PORT=3000`, `LOG_LEVEL=info`, `LLM_MODE` (`fake` until the spend caps were in place, now `real` with `ANTHROPIC_API_KEY`), `DATABASE_URL` (the database's internal URL), `IP_HASH_SECRET` (generated, 32+ characters).
 - A dedicated **API key** for CI (`DOKPLOY_API_KEY`).
 - The **Swarm settings** below in the Application's Swarm settings (Advanced tab).
 
