@@ -16,7 +16,7 @@ This app is built mostly by AI coding agents, with a human steering the work.
 
 ## Infrastructure
 
-Every merge to `main` is tested, scanned, built into an image and deployed to Dokploy on a self-hosted server over a private tailnet; an unhealthy release rolls back on its own. [docs/infrastructure.md](docs/infrastructure.md) has the system map, the deploy and rollback flow, and where each secret lives.
+Every merge to `main` that changes code is tested, scanned, built into an image and deployed to Dokploy on a self-hosted server over a private tailnet; an unhealthy release rolls back on its own. Docs-only merges skip CI and aren't deployed. [docs/infrastructure.md](docs/infrastructure.md) has the system map, the deploy and rollback flow, and where each secret lives.
 
 [![System map: agent server, GitHub, self-hosted server and Anthropic API](docs/infrastructure.svg)](docs/infrastructure.md)
 

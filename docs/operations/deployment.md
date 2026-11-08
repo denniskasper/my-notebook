@@ -177,13 +177,13 @@ Check what is applied with `docker service inspect <SERVICE> --format '{{json .S
 
 ## Switching `LLM_MODE`
 
-Production runs `LLM_MODE=fake` (scripted answers, no Anthropic key, no LLM cost) until the spend caps are in place. To switch it:
+Production runs `LLM_MODE=real` now that the spend caps are in place. `LLM_MODE=fake` serves scripted answers with no Anthropic key and no LLM cost; production ran it until then. To switch to `real`:
 
 1. In the Application's environment, set `ANTHROPIC_API_KEY` and change `LLM_MODE` to `real`. Without a key the new container refuses to start, its health check never passes and Swarm keeps the old one.
 2. Click **Deploy** in Dokploy (or re-run the last `deploy` job). Environment changes only take effect with a new rollout.
 3. Check `/api/health` still reports the same commit and try a Chat answer.
 
-Switching back is the same with `LLM_MODE=fake`; the key can stay set.
+Switching back to `fake` is the same with `LLM_MODE=fake`; the key can stay set.
 
 ## Raising caps for a recording
 
