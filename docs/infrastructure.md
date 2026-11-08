@@ -14,7 +14,7 @@ Dashed blue arrows are private traffic over the tailnet, orange arrows are publi
 
 ## Deploy and rollback
 
-Every merge to `main` runs the same steps. Dokploy's own Git autodeploy is off, so production runs exactly the image CI tested and scanned, and the deploy job only turns green once production reports the new commit.
+Every merge to `main` that changes code runs the same steps; a merge that only touches docs or Markdown skips CI and isn't deployed. Dokploy's own Git autodeploy is off, so production runs exactly the image CI tested and scanned, and the deploy job only turns green once production reports the new commit.
 
 ```mermaid
 flowchart TB
