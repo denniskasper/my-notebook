@@ -4,7 +4,7 @@ import { z } from 'zod';
 
 import { addPdfSource, PDF_MAX_BYTES, processSource } from '@/modules/sources';
 import { ensureVisitor } from '@/modules/visitors';
-import { isSameOrigin } from '@/platform/http';
+import { isSameOrigin, readFormDataWithin } from '@/platform/http';
 import { requestLogger } from '@/platform/logging';
 import type { PdfUploadResponse } from '@/ui/sources';
 
@@ -29,11 +29,9 @@ export async function POST(request: Request, { params }: Context): Promise<Respo
   const notebookId = z.uuid().safeParse((await params).notebookId);
   if (!notebookId.success) return reply({ ok: false, error: 'not_found' }, 404);
 
-  const declared = Number(request.headers.get('content-length') ?? 0);
-  if (declared > PDF_MAX_BYTES + MULTIPART_OVERHEAD_BYTES) {
-    return reply({ ok: false, error: 'pdf_too_large' }, 413);
-  }
-  const file = (await request.formData().catch(() => null))?.get('file');
+  const form = await readFormDataWithin(request, PDF_MAX_BYTES + MULTIPART_OVERHEAD_BYTES);
+  if (form === 'too_large') return reply({ ok: false, error: 'pdf_too_large' }, 413);
+  const file = form === 'invalid' ? null : form.get('file');
   if (!(file instanceof File)) return reply({ ok: false, error: 'pdf_invalid' }, 400);
   const looksLikePdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
   if (!looksLikePdf) return reply({ ok: false, error: 'pdf_invalid' }, 415);
