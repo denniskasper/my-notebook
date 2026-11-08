@@ -16,8 +16,8 @@ export type MarkerParser = {
 };
 
 const MARKER = /^p:([A-Za-z0-9-]{1,40})$/;
-// What the start of a marker looks like before its `]]` has arrived.
-const MARKER_START = /^\[\[(?:p(?::[A-Za-z0-9-]{0,40})?)?$/;
+// What the start of a marker looks like before its `]]` has arrived (a chunk can end between the two).
+const MARKER_START = /^\[\[(?:p(?::[A-Za-z0-9-]{0,40}\]?)?)?$/;
 // Long enough to recognise the Passage in the tooltip, short enough for a snapshot.
 const QUOTE_MAX_CHARS = 400;
 
