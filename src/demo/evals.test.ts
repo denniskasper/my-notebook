@@ -32,7 +32,18 @@ describe('parseEvalSet', () => {
     expectedSources: ['notizen'],
     keyFacts: [{ fact: '2027', anyOf: ['2027'] }],
   };
-  const sources = [{ key: 'notizen', title: 'Meine Notizen zur KI-Verordnung' }];
+  const sources = [
+    {
+      key: 'notizen',
+      title: 'Meine Notizen zur KI-Verordnung',
+      load: { file: 'sources/meine-notizen.md' },
+    },
+  ];
+  const agentSource = {
+    key: 'bnetza',
+    title: 'Pressemitteilung',
+    load: { addedByAgent: { host: 'www.bundesnetzagentur.de' } },
+  };
 
   it('accepts a question citing one of its enabled Sources', () => {
     expect(parseEvalSet({ sources, questions: [question] }).questions).toHaveLength(1);
@@ -47,7 +58,10 @@ describe('parseEvalSet', () => {
   it('rejects an expected Source that is not enabled for the question', () => {
     expect(() =>
       parseEvalSet({
-        sources: [...sources, { key: 'ki-mig', title: 'KI-MIG' }],
+        sources: [
+          ...sources,
+          { key: 'ki-mig', title: 'KI-MIG', load: { pdf: 'local/KI-MIG.pdf' } },
+        ],
         questions: [{ ...question, expectedSources: ['ki-mig'] }],
       }),
     ).toThrow(/ki-mig/);
@@ -67,5 +81,36 @@ describe('parseEvalSet', () => {
 
   it('rejects duplicate question ids', () => {
     expect(() => parseEvalSet({ sources, questions: [question, question] })).toThrow(/duplicate/);
+  });
+
+  it('rejects a Source without a way to load it', () => {
+    expect(() =>
+      parseEvalSet({ sources: [{ key: 'notizen', title: 'Notizen' }], questions: [question] }),
+    ).toThrow(/load/);
+  });
+
+  it('rejects a web page Source whose address is not http(s)', () => {
+    expect(() =>
+      parseEvalSet({
+        sources: [{ key: 'notizen', title: 'Notizen', load: { url: 'file:///etc/passwd' } }],
+        questions: [question],
+      }),
+    ).toThrow(/load/);
+  });
+
+  it('lets an Agent question expect a Source the Agent adds', () => {
+    const agentQuestion = { ...question, mode: 'agent', expectedSources: ['notizen', 'bnetza'] };
+    expect(
+      parseEvalSet({ sources: [...sources, agentSource], questions: [agentQuestion] }).questions,
+    ).toHaveLength(1);
+  });
+
+  it('rejects enabling a Source only the Agent adds', () => {
+    expect(() =>
+      parseEvalSet({
+        sources: [...sources, agentSource],
+        questions: [{ ...question, mode: 'agent', enabledSources: ['notizen', 'bnetza'] }],
+      }),
+    ).toThrow(/bnetza/);
   });
 });

@@ -6,7 +6,7 @@ The reviewer checks every slice against these, alongside `AGENTS.md`, `GLOSSARY.
 
 - **Module boundaries.** Code lives in `src/modules/<module>/` (visitors, notebooks, sources, chat, notes, agent, studio, usage). A module's `index.ts` is its only public surface: `src/app` and other modules import a module only through it. Each module owns its Drizzle tables in its `schema.ts`.
 - **`src/platform` imports no module.** It holds db, llm, env, logging and http/sse helpers. `src/app` stays thin: routes, layouts and Route Handlers call into modules.
-- **The `llm` boundary.** Every call to Claude goes through `src/platform/llm`. Tests use its scripted fake (`LLM_MODE=fake`); no test, CI job or e2e run calls the real API or needs a key.
+- **The `llm` boundary.** Every call to Claude goes through `src/platform/llm`. Tests use its scripted fake (`LLM_MODE=fake`); no test, CI job or e2e run calls the real API or needs a key. The one exception is the AI evals (`pnpm evals`, `.github/workflows/evals.yml`): started by hand only (`workflow_dispatch`, never on PRs), with the eval key from the `evals` environment.
 - **Zod at every trust boundary:** env at boot, Server Action and Route Handler input, SSE events, tool input, jsonb read from the database.
 - **Names follow `GLOSSARY.md`** (Notebook, Source, Passage, Citation, Note, Agent run, Step, Visitor…) in code, tables and tests. Avoid the listed synonyms.
 

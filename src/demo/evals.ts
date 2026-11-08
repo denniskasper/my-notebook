@@ -9,6 +9,26 @@ const keyFactSchema = z.object({
   anyOf: z.array(z.string().min(1)).min(1),
 });
 
+/**
+ * How the eval runner gets a Source into its Notebook: a text file or PDF
+ * (paths relative to `demo/`), a web page fetched like a URL Source, or a page
+ * only the Agent adds during its run, recognised by its host.
+ */
+const sourceLoadSchema = z.union([
+  z.strictObject({ file: z.string().min(1) }),
+  z.strictObject({ pdf: z.string().min(1) }),
+  z.strictObject({ url: z.url({ protocol: /^https?$/ }) }),
+  z.strictObject({ addedByAgent: z.strictObject({ host: z.string().min(1) }) }),
+]);
+
+export type SourceLoad = z.infer<typeof sourceLoadSchema>;
+
+const evalSourceSchema = z.object({
+  key: slugSchema,
+  title: z.string().min(1),
+  load: sourceLoadSchema,
+});
+
 const evalQuestionSchema = z.object({
   id: slugSchema,
   // The storyboard scene that asks it in the video (`demo/storyboard.md`), or null.
@@ -26,11 +46,14 @@ const evalQuestionSchema = z.object({
 
 export const evalSetSchema = z
   .object({
-    sources: z.array(z.object({ key: slugSchema, title: z.string().min(1) })).min(1),
+    sources: z.array(evalSourceSchema).min(1),
     questions: z.array(evalQuestionSchema).min(1),
   })
   .superRefine((set, ctx) => {
     const known = new Set(set.sources.map((source) => source.key));
+    const agentOnly = new Set(
+      set.sources.filter((source) => 'addedByAgent' in source.load).map((source) => source.key),
+    );
     const seen = new Set<string>();
     set.questions.forEach((question, index) => {
       const issue = (message: string) =>
@@ -41,6 +64,10 @@ export const evalSetSchema = z
 
       for (const key of [...question.enabledSources, ...question.expectedSources]) {
         if (!known.has(key)) issue(`unknown Source ${key}`);
+      }
+      for (const key of question.enabledSources) {
+        if (agentOnly.has(key))
+          issue(`Source ${key} is only added by the Agent, it can't be enabled`);
       }
       // The Agent may add Sources during its run; Chat can only cite enabled ones.
       if (question.mode === 'chat') {
@@ -56,6 +83,7 @@ export const evalSetSchema = z
   });
 
 export type EvalSet = z.infer<typeof evalSetSchema>;
+export type EvalSource = z.infer<typeof evalSourceSchema>;
 export type EvalQuestion = z.infer<typeof evalQuestionSchema>;
 
 /** Parses `demo/evals.json`; throws a readable error listing every problem. */
