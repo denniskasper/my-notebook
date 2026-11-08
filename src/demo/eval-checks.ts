@@ -33,6 +33,23 @@ const BRIEFING_SECTIONS = ['## Überblick', '## Kernpunkte'];
 // Non-breaking and narrow spaces (as in „2. Dezember“) must not hide a key fact.
 const normalize = (text: string) => text.replace(/\s+/g, ' ').toLowerCase();
 
+/** Passes if nothing is missing; otherwise names what is. */
+function missingCheck(
+  name: CheckName,
+  missing: readonly string[],
+  {
+    ok,
+    prefix = 'missing ',
+    separator = ', ',
+  }: { ok: string; prefix?: string; separator?: string },
+): Check {
+  return {
+    name,
+    passed: missing.length === 0,
+    detail: missing.length === 0 ? ok : `${prefix}${missing.join(separator)}`,
+  };
+}
+
 function answered(answer: EvalAnswer): Check {
   const passed = answer.status === 'complete' && answer.error === null;
   return {
@@ -74,11 +91,7 @@ function expectedSourcesCited(
   const keyOf = new Map(sources.map((source) => [source.id, source.key]));
   const cited = new Set(answer.citations.map((citation) => keyOf.get(citation.sourceId)));
   const missing = question.expectedSources.filter((key) => !cited.has(key));
-  return {
-    name: 'sources',
-    passed: missing.length === 0,
-    detail: missing.length === 0 ? 'all cited' : `missing ${missing.join(', ')}`,
-  };
+  return missingCheck('sources', missing, { ok: 'all cited' });
 }
 
 function keyFactsFound(question: EvalQuestion, answer: EvalAnswer): Check {
@@ -88,12 +101,11 @@ function keyFactsFound(question: EvalQuestion, answer: EvalAnswer): Check {
   );
   const found = question.keyFacts.length - missing.length;
   const count = `${found}/${question.keyFacts.length}`;
-  return {
-    name: 'key_facts',
-    passed: missing.length === 0,
-    detail:
-      missing.length === 0 ? count : `${count}, missing: ${missing.map((f) => f.fact).join('; ')}`,
-  };
+  return missingCheck(
+    'key_facts',
+    missing.map((f) => f.fact),
+    { ok: count, prefix: `${count}, missing: `, separator: '; ' },
+  );
 }
 
 function declined(answer: EvalAnswer): Check {
@@ -138,10 +150,6 @@ export function checkBriefing(briefing: EvalAnswer, sources: readonly NotebookSo
   return [
     answered(briefing),
     citationsValid(briefing, sources, { required: true }),
-    {
-      name: 'structure',
-      passed: missing.length === 0,
-      detail: missing.length === 0 ? 'Überblick, Kernpunkte' : `missing ${missing.join(', ')}`,
-    },
+    missingCheck('structure', missing, { ok: 'Überblick, Kernpunkte' }),
   ];
 }

@@ -38,9 +38,12 @@ process.env.DEMO_BUDGET_TOTAL_USD = '1000';
 process.env.LOG_LEVEL ??= 'warn';
 
 const config = env();
-const refusal = seedRefusal({ nodeEnv: config.NODE_ENV, databaseUrl: config.DATABASE_URL });
+const refusal = seedRefusal(
+  { nodeEnv: config.NODE_ENV, databaseUrl: config.DATABASE_URL },
+  'the eval run',
+);
 if (refusal) {
-  console.error(`Refusing to run the evals: ${refusal.replace('demo seed', 'eval run')}.`);
+  console.error(`Refusing to run the evals: ${refusal}.`);
   process.exit(1);
 }
 if (config.LLM_MODE !== 'real') {

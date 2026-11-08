@@ -23,7 +23,7 @@ const CHECK_LABELS: Record<CheckName, string> = {
 export const resultPassed = (result: EvalResult) => result.checks.every((check) => check.passed);
 
 const usd = (microUsd: number) => `$${(microUsd / 1_000_000).toFixed(4)}`;
-const cell = (text: string) => text.replaceAll('|', '\\|');
+const escapeCell = (text: string) => text.replaceAll('|', '\\|');
 
 function checksCell(checks: readonly Check[]): string {
   return checks
@@ -41,7 +41,7 @@ export function formatReport(report: EvalReport): string {
       usd(result.costMicroUsd),
       resultPassed(result) ? 'pass' : '**FAIL**',
     ]
-      .map(cell)
+      .map(escapeCell)
       .join(' | '),
   );
   const passed = report.results.filter(resultPassed).length;

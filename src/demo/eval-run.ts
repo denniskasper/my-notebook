@@ -253,13 +253,20 @@ async function ask(scope: Scope, question: EvalQuestion): Promise<EvalAnswer> {
   return collector.result();
 }
 
+const failedAnswer = (error: string): EvalAnswer => ({
+  status: 'failed',
+  error,
+  text: '',
+  citations: [],
+});
+
 async function generateBriefing(scope: Scope): Promise<EvalAnswer> {
   const started = await startBriefing(scope.visitorId, scope.notebookId);
-  if (!started.ok) return { status: 'failed', error: started.error, text: '', citations: [] };
+  if (!started.ok) return failedAnswer(started.error);
   await runBriefing(scope.visitorId, started.output.id);
   const outputs = await listStudioOutputs(scope.visitorId, scope.notebookId);
   const output = outputs.find((candidate) => candidate.id === started.output.id);
-  if (!output) return { status: 'failed', error: 'not_found', text: '', citations: [] };
+  if (!output) return failedAnswer('not_found');
   const citations: EvalCitation[] = output.content.flatMap((part) => part.citations);
   return {
     status: output.status === 'complete' ? 'complete' : 'failed',

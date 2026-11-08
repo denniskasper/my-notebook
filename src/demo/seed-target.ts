@@ -7,14 +7,14 @@ const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
  * Demo data is for local and e2e databases only: production Notebooks are built
  * by hand in the UI, so the seed refuses production and any non-local host.
  */
-export function seedRefusal(target: {
-  nodeEnv: Env['NODE_ENV'];
-  databaseUrl: string;
-}): string | null {
-  if (target.nodeEnv === 'production') return 'the demo seed never runs in production';
+export function seedRefusal(
+  target: { nodeEnv: Env['NODE_ENV']; databaseUrl: string },
+  subject = 'the demo seed',
+): string | null {
+  if (target.nodeEnv === 'production') return `${subject} never runs in production`;
   const { hostname } = new URL(target.databaseUrl);
   if (!LOCAL_HOSTS.has(hostname)) {
-    return `the demo seed only runs against a local database, not ${hostname}`;
+    return `${subject} only runs against a local database, not ${hostname}`;
   }
   return null;
 }
