@@ -57,8 +57,6 @@ and cost to the job summary.
 To run them locally (a full run costs under $0.50, most of it the Agent run, capped at $0.30):
 
 ```sh
-mkdir -p demo/local
-curl -fsSL -o demo/local/KI-MIG.pdf https://www.gesetze-im-internet.de/ki-mig/KI-MIG.pdf
 pnpm db:migrate
 LLM_MODE=real ANTHROPIC_API_KEY=<EVAL_KEY> pnpm evals
 ```
@@ -70,8 +68,8 @@ LLM_MODE=real ANTHROPIC_API_KEY=<EVAL_KEY> pnpm evals
 | `--budget <usd>` | Spend cap for the run (default 2, at most 5) |
 
 The run creates its own Visitor and Notebook in the local database (it refuses production and
-non-local databases) and loads the demo Sources like a Visitor would: the pasted text from
-`demo/sources/`, the PDF from `demo/local/` and the Wikipedia page fetched live. The run's
+non-local databases) and loads the demo Sources like a Visitor would: the pasted text and the PDF
+from `demo/sources/` and the Wikipedia page fetched live. The run's
 Visitor gets the budget as its Daily allowance, so the Budget guard stops a runaway run. It prints
 a table with each question's checks and cost and exits non-zero if any check failed. Without
 `LLM_MODE=real` it runs against the scripted fake, which is useful as a free dry run, but key

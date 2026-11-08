@@ -61,12 +61,8 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm db:migrate
-      # The KI-MIG PDF is not committed (demo/sources.md); the Wikipedia page is fetched by the app.
-      - name: Download the KI-MIG PDF
-        run: |
-          mkdir -p demo/local
-          curl -fsSL --retry 3 --max-time 60 -o demo/local/KI-MIG.pdf \
-            https://www.gesetze-im-internet.de/ki-mig/KI-MIG.pdf
+      # The KI-MIG PDF is committed in demo/sources/ (its host blocks GitHub runners);
+      # the Wikipedia page is fetched by the app.
       - name: Run the evals
         env:
           ONLY: ${{ inputs.only }}
