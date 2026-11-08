@@ -225,7 +225,10 @@ describe('answerSources', () => {
       withAdded,
     );
 
-    expect(cited).toEqual(['ki-mig ×2', 'notizen ×1']);
+    expect(cited).toEqual([
+      { name: 'ki-mig', count: 2 },
+      { name: 'notizen', count: 1 },
+    ]);
   });
 
   it('names a cited Source without a key by its URL, and a vanished one as unknown', () => {
@@ -239,7 +242,10 @@ describe('answerSources', () => {
       withAdded,
     );
 
-    expect(cited).toEqual(['https://andere.example.org/ki ×1', 'unknown Source ×1']);
+    expect(cited).toEqual([
+      { name: 'https://andere.example.org/ki', count: 1 },
+      { name: 'unknown Source', count: 1 },
+    ]);
   });
 
   it('lists the URLs of the Sources the Agent added', () => {

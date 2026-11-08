@@ -8,7 +8,7 @@ const report: EvalReport = {
       id: 'p1-hochrisiko-fristen',
       mode: 'chat',
       costMicroUsd: 4_210,
-      cited: ['notizen ×3'],
+      cited: [{ name: 'notizen', count: 3 }],
       added: [],
       checks: [
         { name: 'answered', passed: true, detail: 'complete' },
@@ -21,7 +21,10 @@ const report: EvalReport = {
       id: 'p1-nicht-abgedeckt',
       mode: 'chat',
       costMicroUsd: 1_000,
-      cited: ['notizen ×1', 'ki-mig ×1'],
+      cited: [
+        { name: 'notizen', count: 1 },
+        { name: 'ki-mig', count: 1 },
+      ],
       added: [],
       checks: [
         { name: 'answered', passed: true, detail: 'complete' },
@@ -33,7 +36,7 @@ const report: EvalReport = {
       id: 'briefing',
       mode: 'briefing',
       costMicroUsd: 61_500,
-      cited: ['wikipedia ×4'],
+      cited: [{ name: 'wikipedia', count: 4 }],
       added: ['https://www.example.org/presse'],
       checks: [{ name: 'structure', passed: true, detail: 'Überblick, Kernpunkte' }],
     },

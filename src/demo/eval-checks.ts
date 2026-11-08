@@ -157,6 +157,9 @@ export function checkBriefing(briefing: EvalAnswer, sources: readonly NotebookSo
   ];
 }
 
+/** A Source an answer cited, named by its eval key (or URL), and how many Citations point to it. */
+export type CitedSource = { name: string; count: number };
+
 /**
  * Which Sources an answer cited (by eval key, with how often) and the URLs of
  * the Sources the Agent added: for the report, so a failed `sources` check
@@ -165,7 +168,7 @@ export function checkBriefing(briefing: EvalAnswer, sources: readonly NotebookSo
 export function answerSources(
   answer: EvalAnswer,
   sources: readonly NotebookSource[],
-): { cited: string[]; added: string[] } {
+): { cited: CitedSource[]; added: string[] } {
   const byId = new Map(sources.map((source) => [source.id, source]));
   const label = (id: string) => {
     const source = byId.get(id);
@@ -177,7 +180,7 @@ export function answerSources(
     counts.set(name, (counts.get(name) ?? 0) + 1);
   }
   return {
-    cited: [...counts].map(([name, count]) => `${name} ×${count}`),
+    cited: [...counts].map(([name, count]) => ({ name, count })),
     added: answer.addedSourceIds.map((id) => byId.get(id)?.url ?? label(id)),
   };
 }

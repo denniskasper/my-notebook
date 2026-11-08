@@ -27,7 +27,7 @@ Safety:
 Answer:
 - Answer in German (informal "du"), unless the user writes in another language.
 - Be concise: a few sentences or a short list, plain text without headings or Markdown links. If the Sources don't cover the task, say so plainly.
-- The answer must carry its own markers, even when a Note already has them: cite the primary Sources it rests on and every Source you added in this task.`;
+- The answer must carry its own markers, even when a Note already has them: cite the primary Sources it rests on and every Source you added.`;
 
 /** The task with the last few turns of the conversation before it, as text. */
 export function buildAgentPrompt(history: readonly HistoryTurn[], task: string): string {

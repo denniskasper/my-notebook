@@ -1,12 +1,12 @@
-import type { Check, CheckName } from './eval-checks';
+import type { Check, CheckName, CitedSource } from './eval-checks';
 
 /** One eval question (or the Briefing) with its checks and what it cost. */
 export type EvalResult = {
   id: string;
   mode: 'chat' | 'agent' | 'briefing';
   checks: Check[];
-  /** The Sources the answer cited, with how often (`ki-mig ×2`), so a failed check shows why. */
-  cited: string[];
+  /** The Sources the answer cited, with how often, so a failed check shows why. */
+  cited: CitedSource[];
   /** The URLs of the Sources the Agent added while answering. */
   added: string[];
   costMicroUsd: number;
@@ -43,7 +43,7 @@ export function formatReport(report: EvalReport): string {
       result.id,
       result.mode,
       checksCell(result.checks),
-      listCell(result.cited),
+      listCell(result.cited.map(({ name, count }) => `${name} ×${count}`)),
       listCell(result.added),
       usd(result.costMicroUsd),
       resultPassed(result) ? 'pass' : '**FAIL**',

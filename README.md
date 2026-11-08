@@ -71,7 +71,7 @@ The run creates its own Visitor and Notebook in the local database (it refuses p
 non-local databases) and loads the demo Sources like a Visitor would: the pasted text and the PDF
 from `demo/sources/` and the Wikipedia page fetched live. The run's
 Visitor gets the budget as its Daily allowance, so the Budget guard stops a runaway run. It prints
-a table with each question's checks, the Sources its answer cited, the pages the Agent added and
+a table with each question's checks, the Sources its answer cited, the Sources the Agent added and
 its cost, and exits non-zero if any check failed. Without
 `LLM_MODE=real` it runs against the scripted fake, which is useful as a free dry run, but key
 facts and the uncovered question fail there.
