@@ -38,6 +38,10 @@ export default defineConfig({
             DEMO_BUDGET_TOTAL_USD: '0.05',
             CHAT_RATE_LIMIT_PER_HOUR: '30',
             BRIEFING_RATE_LIMIT_PER_HOUR: '3',
+            // Small holds, so one in-flight call doesn't use up the small caps above.
+            CHAT_HOLD_USD: '0.001',
+            BRIEFING_HOLD_USD: '0.001',
+            AGENT_MAX_BUDGET_USD: '0.001',
             AGENT_CONCURRENCY_LIMIT: '2',
             NEW_VISITORS_PER_IP_PER_DAY: '5',
             // The URL Source tests serve their pages on this loopback port.

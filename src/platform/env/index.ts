@@ -34,6 +34,10 @@ export const envSchema = z
     CHAT_RATE_LIMIT_PER_HOUR: count.default(30),
     AGENT_RATE_LIMIT_PER_HOUR: count.default(3),
     BRIEFING_RATE_LIMIT_PER_HOUR: count.default(3),
+    // What a Chat answer or a Briefing holds against the caps while it runs, before its real
+    // cost is known (an Agent run holds AGENT_MAX_BUDGET_USD).
+    CHAT_HOLD_USD: usd.default(0.02),
+    BRIEFING_HOLD_USD: usd.default(0.2),
     // Agent runs at the same time, across the whole demo.
     AGENT_CONCURRENCY_LIMIT: count.default(2),
     NEW_VISITORS_PER_IP_PER_DAY: count.default(5),

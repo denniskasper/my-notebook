@@ -53,6 +53,8 @@ Set on the running container. Names only; values live in the deployment platform
 | `CHAT_RATE_LIMIT_PER_HOUR` | no | Chat questions per Visitor per hour; `30` |
 | `AGENT_RATE_LIMIT_PER_HOUR` | no | Agent runs per Visitor per hour; `3` |
 | `BRIEFING_RATE_LIMIT_PER_HOUR` | no | Briefings per Visitor per hour; `3` |
+| `CHAT_HOLD_USD` | no | What a Chat answer holds against the caps while it runs, until its real cost is recorded; `0.02` |
+| `BRIEFING_HOLD_USD` | no | The same for a Briefing; `0.2` (an Agent run holds `AGENT_MAX_BUDGET_USD`) |
 | `AGENT_CONCURRENCY_LIMIT` | no | Agent runs at the same time, demo-wide; `2` |
 | `NEW_VISITORS_PER_IP_PER_DAY` | no | New Visitors per IP (hashed) per day; `5` |
 | `AGENT_MAX_TURNS` | no | Model turns per Agent run; `15` |

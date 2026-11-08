@@ -29,3 +29,27 @@ export const usageEvents = pgTable(
     index('usage_events_visitor_id_idx').on(table.visitorId, table.at),
   ],
 );
+
+export const GUARDED_FEATURES = ['chat', 'agent', 'studio'] as const;
+
+/**
+ * Calls in flight: each holds an estimate of its cost against the caps until
+ * it records its real cost, so concurrent calls can't all pass the same check.
+ * A hold whose call died is ignored once it expires.
+ */
+export const usageReservations = pgTable(
+  'usage_reservations',
+  {
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`uuidv7()`),
+    at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    visitorId: uuid('visitor_id')
+      .notNull()
+      .references(() => visitors.id, { onDelete: 'cascade' }),
+    feature: text('feature', { enum: GUARDED_FEATURES }).notNull(),
+    costMicroUsd: integer('cost_micro_usd').notNull(),
+  },
+  (table) => [index('usage_reservations_expires_at_idx').on(table.expiresAt)],
+);

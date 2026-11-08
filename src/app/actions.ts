@@ -277,7 +277,7 @@ export async function generateBriefingAction(
   }
   (await requestLogger()).info({ event: 'studio.briefing_started', outputId: started.output.id });
   after(async () => {
-    await runBriefing(visitorId, started.output.id);
+    await runBriefing(visitorId, started.output.id, started.reservationId);
   });
   revalidatePath(`/notebooks/${notebookId}`);
   return { ok: true };
