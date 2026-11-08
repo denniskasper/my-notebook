@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { checkAnswer, checkBriefing, type EvalAnswer, type NotebookSource } from './eval-checks';
+import {
+  answerSources,
+  checkAnswer,
+  checkBriefing,
+  type EvalAnswer,
+  type NotebookSource,
+} from './eval-checks';
 import type { EvalQuestion } from './evals';
 
 const NOTIZEN = '0190a000-0000-7000-8000-000000000001';
@@ -8,9 +14,15 @@ const KI_MIG = '0190a000-0000-7000-8000-000000000002';
 const WIKIPEDIA = '0190a000-0000-7000-8000-000000000003';
 
 const sources: NotebookSource[] = [
-  { id: NOTIZEN, key: 'notizen', enabled: true, ordinals: [0, 1, 2] },
-  { id: KI_MIG, key: 'ki-mig', enabled: true, ordinals: [0, 1] },
-  { id: WIKIPEDIA, key: 'wikipedia', enabled: false, ordinals: [0, 1, 2, 3] },
+  { id: NOTIZEN, key: 'notizen', url: null, enabled: true, ordinals: [0, 1, 2] },
+  { id: KI_MIG, key: 'ki-mig', url: null, enabled: true, ordinals: [0, 1] },
+  {
+    id: WIKIPEDIA,
+    key: 'wikipedia',
+    url: 'https://de.example.org/wiki/ki-verordnung',
+    enabled: false,
+    ordinals: [0, 1, 2, 3],
+  },
 ];
 
 const covered: EvalQuestion = {
@@ -42,6 +54,7 @@ const answer = (overrides: Partial<EvalAnswer> = {}): EvalAnswer => ({
     { sourceId: NOTIZEN, ordinals: [1] },
     { sourceId: KI_MIG, ordinals: [0, 1] },
   ],
+  addedSourceIds: [],
   ...overrides,
 });
 
@@ -159,6 +172,7 @@ describe('checkBriefing', () => {
     error: null,
     text: '## Überblick\nDie KI-Verordnung …\n\n## Kernpunkte\n- Die Bundesnetzagentur …',
     citations: [{ sourceId: NOTIZEN, ordinals: [0] }],
+    addedSourceIds: [],
   };
 
   it('passes a complete Briefing with both required sections and valid Citations', () => {
@@ -175,5 +189,68 @@ describe('checkBriefing', () => {
       passed: false,
       detail: 'missing ## Kernpunkte',
     });
+  });
+});
+
+describe('answerSources', () => {
+  const PRESSE = '0190a000-0000-7000-8000-000000000004';
+  const BEHOERDE = '0190a000-0000-7000-8000-000000000005';
+  const withAdded: NotebookSource[] = [
+    ...sources,
+    {
+      id: PRESSE,
+      key: 'bnetza',
+      url: 'https://www.example.org/presse',
+      enabled: true,
+      ordinals: [0],
+    },
+    {
+      id: BEHOERDE,
+      key: null,
+      url: 'https://andere.example.org/ki',
+      enabled: true,
+      ordinals: [0, 1],
+    },
+  ];
+
+  it('names each cited Source by its key with how often it was cited, in order of first Citation', () => {
+    const { cited } = answerSources(
+      answer({
+        citations: [
+          { sourceId: KI_MIG, ordinals: [0] },
+          { sourceId: NOTIZEN, ordinals: [1] },
+          { sourceId: KI_MIG, ordinals: [1] },
+        ],
+      }),
+      withAdded,
+    );
+
+    expect(cited).toEqual([
+      { name: 'ki-mig', count: 2 },
+      { name: 'notizen', count: 1 },
+    ]);
+  });
+
+  it('names a cited Source without a key by its URL, and a vanished one as unknown', () => {
+    const { cited } = answerSources(
+      answer({
+        citations: [
+          { sourceId: BEHOERDE, ordinals: [0] },
+          { sourceId: '0190a000-0000-7000-8000-00000000ffff', ordinals: [0] },
+        ],
+      }),
+      withAdded,
+    );
+
+    expect(cited).toEqual([
+      { name: 'https://andere.example.org/ki', count: 1 },
+      { name: 'unknown Source', count: 1 },
+    ]);
+  });
+
+  it('lists the URLs of the Sources the Agent added', () => {
+    const { added } = answerSources(answer({ addedSourceIds: [BEHOERDE, PRESSE] }), withAdded);
+
+    expect(added).toEqual(['https://andere.example.org/ki', 'https://www.example.org/presse']);
   });
 });

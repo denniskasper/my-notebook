@@ -19,6 +19,7 @@ import { spendSince } from '@/modules/usage';
 import { createVisitor } from '@/modules/visitors';
 
 import {
+  answerSources,
   checkAnswer,
   checkBriefing,
   type EvalAnswer,
@@ -86,6 +87,7 @@ export async function runEvals(options: EvalRunOptions): Promise<EvalRunReport> 
       id: question.id,
       mode: question.mode,
       checks: checkAnswer(question, answer, sources),
+      ...answerSources(answer, sources),
       costMicroUsd,
     });
   }
@@ -99,6 +101,7 @@ export async function runEvals(options: EvalRunOptions): Promise<EvalRunReport> 
       id: 'briefing',
       mode: 'briefing',
       checks: checkBriefing(briefing, sources),
+      ...answerSources(briefing, sources),
       costMicroUsd,
     });
   }
@@ -191,6 +194,7 @@ async function notebookSources(
       return {
         id: source.id,
         key: keyOf(source),
+        url: source.url,
         enabled: source.enabled && source.status === 'ready',
         ordinals: read?.passages.map((passage) => passage.ordinal) ?? [],
       };
@@ -213,7 +217,13 @@ async function charged<T>(
 /** Collects an answer's text and Citations from its events, the way the browser would. */
 function answerCollector() {
   const texts: string[] = [];
-  const answer: EvalAnswer = { status: 'complete', error: null, text: '', citations: [] };
+  const answer: EvalAnswer = {
+    status: 'complete',
+    error: null,
+    text: '',
+    citations: [],
+    addedSourceIds: [],
+  };
   const onEvent = (event: ChatEvent | AgentEvent) => {
     switch (event.type) {
       case 'text':
@@ -221,6 +231,9 @@ function answerCollector() {
         break;
       case 'citation':
         answer.citations.push(event.citation);
+        break;
+      case 'source_added':
+        answer.addedSourceIds.push(event.sourceId);
         break;
       case 'done':
         answer.status = event.status;
@@ -258,6 +271,7 @@ const failedAnswer = (error: string): EvalAnswer => ({
   error,
   text: '',
   citations: [],
+  addedSourceIds: [],
 });
 
 async function generateBriefing(scope: Scope): Promise<EvalAnswer> {
@@ -273,5 +287,6 @@ async function generateBriefing(scope: Scope): Promise<EvalAnswer> {
     error: output.errorCode,
     text: output.content.map((part) => part.text).join(''),
     citations,
+    addedSourceIds: [],
   };
 }

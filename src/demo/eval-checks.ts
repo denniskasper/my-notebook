@@ -10,12 +10,15 @@ export type EvalAnswer = {
   error: string | null;
   text: string;
   citations: EvalCitation[];
+  /** Sources the Agent added while answering. */
+  addedSourceIds: string[];
 };
 
 /** A Source in the eval Notebook right after the answer, with its eval key if it has one. */
 export type NotebookSource = {
   id: string;
   key: string | null;
+  url: string | null;
   enabled: boolean;
   ordinals: readonly number[];
 };
@@ -152,4 +155,32 @@ export function checkBriefing(briefing: EvalAnswer, sources: readonly NotebookSo
     citationsValid(briefing, sources, { required: true }),
     missingCheck('structure', missing, { ok: 'Überblick, Kernpunkte' }),
   ];
+}
+
+/** A Source an answer cited, named by its eval key (or URL), and how many Citations point to it. */
+export type CitedSource = { name: string; count: number };
+
+/**
+ * Which Sources an answer cited (by eval key, with how often) and the URLs of
+ * the Sources the Agent added: for the report, so a failed `sources` check
+ * shows what was cited instead.
+ */
+export function answerSources(
+  answer: EvalAnswer,
+  sources: readonly NotebookSource[],
+): { cited: CitedSource[]; added: string[] } {
+  const byId = new Map(sources.map((source) => [source.id, source]));
+  const label = (id: string) => {
+    const source = byId.get(id);
+    return source?.key ?? source?.url ?? 'unknown Source';
+  };
+  const counts = new Map<string, number>();
+  for (const citation of answer.citations) {
+    const name = label(citation.sourceId);
+    counts.set(name, (counts.get(name) ?? 0) + 1);
+  }
+  return {
+    cited: [...counts].map(([name, count]) => ({ name, count })),
+    added: answer.addedSourceIds.map((id) => byId.get(id)?.url ?? label(id)),
+  };
 }
