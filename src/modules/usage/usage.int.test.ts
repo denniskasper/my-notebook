@@ -7,7 +7,23 @@ import { MODELS } from '@/platform/llm';
 import { nextBerlinDayStart } from '@/platform/time';
 import { resetDatabase } from '@/test/database';
 
-import { checkUsage, getSpendStatus, recordUsage, spendSince, withAgentSlot } from '.';
+import {
+  getSpendStatus,
+  recordUsage,
+  releaseUsage,
+  reserveUsage,
+  spendSince,
+  withAgentSlot,
+  type GuardedFeature,
+} from '.';
+
+/** The block a reservation ran into, or null after releasing the reservation it got. */
+async function checkUsage(input: { visitorId: string; feature: GuardedFeature }) {
+  const reservation = await reserveUsage(input);
+  if (!reservation.ok) return reservation.block;
+  await releaseUsage(reservation.reservationId);
+  return null;
+}
 
 let visitor: string;
 let notebook: string;
@@ -82,7 +98,7 @@ const sonnetCall = {
   cacheWriteTokens: 0,
 };
 
-describe('checkUsage', () => {
+describe('reserveUsage', () => {
   it('lets a call through while every cap has room', async () => {
     await recordUsage({ visitorId: visitor, notebookId: notebook, ...haikuCall });
     expect(await checkUsage({ visitorId: visitor, feature: 'chat' })).toBeNull();
@@ -130,6 +146,57 @@ describe('checkUsage', () => {
     });
     // Chat counts only questions, not Briefings.
     expect(await checkUsage({ visitorId: visitor, feature: 'chat' })).toBeNull();
+  });
+});
+
+describe('reserveUsage holds', () => {
+  // The test hold for a Chat call is $0.001 (1_000 micro-dollars); the allowance is $0.01.
+  const spendUpTo = (microUsd: number) =>
+    recordUsage({
+      visitorId: visitor,
+      notebookId: notebook,
+      ...haikuCall,
+      costMicroUsd: microUsd,
+    });
+
+  it('admits only one of many concurrent calls when one hold fills the cap', async () => {
+    await spendUpTo(9_500);
+    // Open the connections first, or the first call finishes before the others connect.
+    await Promise.all(Array.from({ length: 8 }, () => spendSince({ since: start })));
+    const results = await Promise.all(
+      Array.from({ length: 8 }, () => reserveUsage({ visitorId: visitor, feature: 'chat' })),
+    );
+    expect(results.filter((result) => result.ok)).toHaveLength(1);
+    expect(results.find((result) => !result.ok)).toEqual({
+      ok: false,
+      block: { reason: 'daily_allowance', retryAt: nextBerlinDayStart(new Date()) },
+    });
+  });
+
+  it('frees the room again once the call is released', async () => {
+    await spendUpTo(9_500);
+    const first = await reserveUsage({ visitorId: visitor, feature: 'chat' });
+    if (!first.ok) throw new Error('first reservation refused');
+    expect((await reserveUsage({ visitorId: visitor, feature: 'chat' })).ok).toBe(false);
+
+    await releaseUsage(first.reservationId);
+    expect((await reserveUsage({ visitorId: visitor, feature: 'chat' })).ok).toBe(true);
+  });
+
+  it('counts calls still in flight against the hourly rate limit', async () => {
+    const held = await Promise.all(
+      [1, 2, 3].map(() => reserveUsage({ visitorId: visitor, feature: 'studio' })),
+    );
+    expect(held.every((result) => result.ok)).toBe(true);
+    expect(await reserveUsage({ visitorId: visitor, feature: 'studio' })).toMatchObject({
+      ok: false,
+      block: { reason: 'rate_limited' },
+    });
+  });
+
+  it('does not show holds as spend', async () => {
+    await reserveUsage({ visitorId: visitor, feature: 'chat' });
+    expect((await getSpendStatus(visitor)).allowance.spentMicroUsd).toBe(0);
   });
 });
 

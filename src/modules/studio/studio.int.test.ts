@@ -34,7 +34,7 @@ async function addReady(title: string, text: string): Promise<string> {
 /** Starts a Briefing and runs it to its end, as the Server Action does after the response. */
 async function generate(visitorId = visitor) {
   const started = await startBriefing(visitorId, notebook);
-  if (started.ok) await runBriefing(visitorId, started.output.id);
+  if (started.ok) await runBriefing(visitorId, started.output.id, started.reservationId);
   return started;
 }
 
@@ -105,7 +105,7 @@ describe('Briefings', () => {
     await addReady('Heizungsgesetz', 'Erster Absatz.');
     const started = await startBriefing(visitor, notebook);
     if (!started.ok) throw new Error('not started');
-    await runBriefing(otherVisitor, started.output.id);
+    await runBriefing(otherVisitor, started.output.id, started.reservationId);
     expect((await listStudioOutputs(visitor, notebook))[0]?.status).toBe('processing');
   });
 });
@@ -158,7 +158,7 @@ describe('the stale sweep', () => {
 
     expect(await failStaleStudioOutputs({ olderThan: new Date(Date.now() - 60_000) })).toBe(0);
     expect(await failStaleStudioOutputs({ olderThan: new Date(Date.now() + 1_000) })).toBe(1);
-    await runBriefing(visitor, started.output.id);
+    await runBriefing(visitor, started.output.id, started.reservationId);
 
     const [briefing] = await listStudioOutputs(visitor, notebook);
     expect(briefing).toMatchObject({ status: 'failed', errorCode: 'interrupted', content: [] });

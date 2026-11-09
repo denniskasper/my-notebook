@@ -12,10 +12,11 @@ import {
 } from '@/modules/chat';
 import { getNotebook } from '@/modules/notebooks';
 import {
-  checkUsage,
   costMicroUsd,
   WEB_SEARCH_MICRO_USD,
   recordUsage,
+  releaseUsage,
+  reserveUsage,
   withAgentSlot,
   type UsageBlock,
 } from '@/modules/usage';
@@ -122,8 +123,9 @@ export async function runAgentTask(
     return emit({ type: 'error', error: 'not_found' });
   }
 
-  const block = await checkUsage({ visitorId, feature: 'agent' });
-  if (block) {
+  const reservation = await reserveUsage({ visitorId, feature: 'agent' });
+  if (!reservation.ok) {
+    const { block } = reservation;
     logger().info({ event: 'agent.refused', reason: block.reason });
     return emit({
       type: 'error',
@@ -132,20 +134,26 @@ export async function runAgentTask(
     });
   }
 
-  const slot = await withAgentSlot(async () => {
-    const started = await startExchange({ notebookId, question: task.data, mode: 'agent' });
-    if (!started) return emit({ type: 'error', error: 'chat_busy' });
-    await emit({ type: 'started', ...started });
-    const log = logger().child({ agentRunId: started.assistantMessageId, notebookId });
-    log.info({ event: 'agent.started' });
-    await runInSlot(
-      { visitorId, notebookId, task: task.data, messageId: started.assistantMessageId },
-      { signal, emit, log, limits: { ...defaultLimits(), ...overrides } },
+  try {
+    const slot = await withAgentSlot(async () => {
+      const started = await startExchange({ notebookId, question: task.data, mode: 'agent' });
+      if (!started) return emit({ type: 'error', error: 'chat_busy' });
+      await emit({ type: 'started', ...started });
+      const log = logger().child({ agentRunId: started.assistantMessageId, notebookId });
+      log.info({ event: 'agent.started' });
+      await runInSlot(
+        { visitorId, notebookId, task: task.data, messageId: started.assistantMessageId },
+        { signal, emit, log, limits: { ...defaultLimits(), ...overrides } },
+      );
+    });
+    if (!slot.ok) {
+      logger().info({ event: 'agent.refused', reason: slot.reason });
+      await emit({ type: 'error', error: slot.reason });
+    }
+  } finally {
+    await releaseUsage(reservation.reservationId).catch((error: unknown) =>
+      logger().error({ event: 'usage.release_failed', err: error }),
     );
-  });
-  if (!slot.ok) {
-    logger().info({ event: 'agent.refused', reason: slot.reason });
-    await emit({ type: 'error', error: slot.reason });
   }
 }
 

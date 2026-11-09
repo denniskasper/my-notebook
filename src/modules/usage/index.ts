@@ -1,6 +1,7 @@
 export {
-  checkUsage,
   getSpendStatus,
+  releaseUsage,
+  reserveUsage,
   withAgentSlot,
   type GuardedFeature,
   type SpendStatus,

@@ -2,7 +2,13 @@ import { z } from 'zod';
 
 import { getNotebook } from '@/modules/notebooks';
 import { listPromptSources } from '@/modules/sources';
-import { checkUsage, estimateOutputTokens, recordUsage, type UsageBlock } from '@/modules/usage';
+import {
+  estimateOutputTokens,
+  recordUsage,
+  releaseUsage,
+  reserveUsage,
+  type UsageBlock,
+} from '@/modules/usage';
 import { llm, type ChatRequest, type LlmUsage } from '@/platform/llm';
 import { logger } from '@/platform/logging';
 
@@ -69,8 +75,9 @@ export async function answerQuestion(
   const sources = await listPromptSources(visitorId, notebookId);
   if (sources.length === 0) return emit({ type: 'error', error: 'no_active_sources' });
 
-  const block = await checkUsage({ visitorId, feature: 'chat' });
-  if (block) {
+  const reservation = await reserveUsage({ visitorId, feature: 'chat' });
+  if (!reservation.ok) {
+    const { block } = reservation;
     logger().info({ event: 'chat.refused', reason: block.reason });
     return emit({
       type: 'error',
@@ -79,33 +86,39 @@ export async function answerQuestion(
     });
   }
 
-  const history = await listHistory(visitorId, notebookId);
-  const sourceTokens = sources.reduce((sum, source) => sum + source.tokenCount, 0);
-  const { request, documents } = buildChatRequest({
-    sources,
-    history: trimHistory(history, { budgetTokens: historyBudget(sourceTokens) }),
-    question: question.data,
-  });
+  try {
+    const history = await listHistory(visitorId, notebookId);
+    const sourceTokens = sources.reduce((sum, source) => sum + source.tokenCount, 0);
+    const { request, documents } = buildChatRequest({
+      sources,
+      history: trimHistory(history, { budgetTokens: historyBudget(sourceTokens) }),
+      question: question.data,
+    });
 
-  const started = await startExchange({ notebookId, question: question.data, mode: 'chat' });
-  if (!started) return emit({ type: 'error', error: 'chat_busy' });
-  await emit({ type: 'started', ...started });
+    const started = await startExchange({ notebookId, question: question.data, mode: 'chat' });
+    if (!started) return emit({ type: 'error', error: 'chat_busy' });
+    await emit({ type: 'started', ...started });
 
-  const answer = await streamAnswer(request, documents, { signal, emit });
-  // Usage first: the call is billed even if storing the answer fails.
-  await recordAnswerUsage({ visitorId, notebookId }, answer);
-  const stored = await finishAnswer(started.assistantMessageId, {
-    status: answer.status,
-    parts: answer.parts,
-    errorCode: answer.status === 'failed' ? 'llm_failed' : null,
-  });
-  logger().info({
-    event: stored ? `chat.${answer.status}` : 'chat.finish_skipped',
-    messageId: started.assistantMessageId,
-  });
+    const answer = await streamAnswer(request, documents, { signal, emit });
+    // Usage first: the call is billed even if storing the answer fails.
+    await recordAnswerUsage({ visitorId, notebookId }, answer);
+    const stored = await finishAnswer(started.assistantMessageId, {
+      status: answer.status,
+      parts: answer.parts,
+      errorCode: answer.status === 'failed' ? 'llm_failed' : null,
+    });
+    logger().info({
+      event: stored ? `chat.${answer.status}` : 'chat.finish_skipped',
+      messageId: started.assistantMessageId,
+    });
 
-  if (answer.status === 'failed') await emit({ type: 'error', error: 'llm_failed' });
-  else await emit({ type: 'done', status: answer.status });
+    if (answer.status === 'failed') await emit({ type: 'error', error: 'llm_failed' });
+    else await emit({ type: 'done', status: answer.status });
+  } finally {
+    await releaseUsage(reservation.reservationId).catch((error: unknown) =>
+      logger().error({ event: 'usage.release_failed', err: error }),
+    );
+  }
 }
 
 const emptyTextPart = (): TextPart => ({ type: 'text', text: '', citations: [] });

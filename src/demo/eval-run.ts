@@ -277,7 +277,7 @@ const failedAnswer = (error: string): EvalAnswer => ({
 async function generateBriefing(scope: Scope): Promise<EvalAnswer> {
   const started = await startBriefing(scope.visitorId, scope.notebookId);
   if (!started.ok) return failedAnswer(started.error);
-  await runBriefing(scope.visitorId, started.output.id);
+  await runBriefing(scope.visitorId, started.output.id, started.reservationId);
   const outputs = await listStudioOutputs(scope.visitorId, scope.notebookId);
   const output = outputs.find((candidate) => candidate.id === started.output.id);
   if (!output) return failedAnswer('not_found');

@@ -3,7 +3,13 @@ import { and, eq, gt, sql } from 'drizzle-orm';
 import { textPartsSchema, toCitation, type PromptDocument, type TextPart } from '@/modules/chat';
 import { getNotebook } from '@/modules/notebooks';
 import { listPromptSources } from '@/modules/sources';
-import { checkUsage, estimateOutputTokens, recordUsage, type UsageBlock } from '@/modules/usage';
+import {
+  estimateOutputTokens,
+  recordUsage,
+  releaseUsage,
+  reserveUsage,
+  type UsageBlock,
+} from '@/modules/usage';
 import { db } from '@/platform/db';
 import { llm, type ChatRequest, type LlmUsage } from '@/platform/llm';
 import { logger } from '@/platform/logging';
@@ -19,7 +25,8 @@ export type StudioErrorCode =
   'not_found' | 'no_active_sources' | 'studio_busy' | UsageBlock['reason'];
 
 export type StartBriefingResult =
-  | { ok: true; output: StudioOutput }
+  /** Pass `reservationId` on to `runBriefing`, which releases it. */
+  | { ok: true; output: StudioOutput; reservationId: string }
   /** `retryAt`: when a Budget guard refusal ends, if it ends on its own. */
   | { ok: false; error: StudioErrorCode; retryAt?: Date };
 
@@ -37,45 +44,58 @@ export async function startBriefing(
   const sources = await listPromptSources(visitorId, notebookId);
   if (sources.length === 0) return { ok: false, error: 'no_active_sources' };
 
-  const block = await checkUsage({ visitorId, feature: 'studio' });
-  if (block) {
+  const reservation = await reserveUsage({ visitorId, feature: 'studio' });
+  if (!reservation.ok) {
+    const { block } = reservation;
     logger().info({ event: 'studio.refused', reason: block.reason });
     return { ok: false, error: block.reason, ...(block.retryAt && { retryAt: block.retryAt }) };
   }
 
-  const output = await db().transaction(async (tx) => {
-    // Across concurrent requests too: a double click must not pay for two Briefings.
-    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`studio:${notebookId}`}))`);
-    const [processing] = await tx
-      .select({ id: studioOutputs.id })
-      .from(studioOutputs)
-      .where(
-        and(
-          eq(studioOutputs.notebookId, notebookId),
-          eq(studioOutputs.status, 'processing'),
-          gt(studioOutputs.createdAt, new Date(Date.now() - PROCESSING_STALE_AFTER_MS)),
-        ),
-      )
-      .limit(1);
-    if (processing) return null;
-    const [row] = await tx
-      .insert(studioOutputs)
-      .values({ notebookId, kind: 'briefing', status: 'processing' })
-      .returning();
-    if (!row) throw new Error('Studio output insert returned no row');
-    return toStudioOutput(row);
-  });
-  if (!output) return { ok: false, error: 'studio_busy' };
+  const output = await db()
+    .transaction(async (tx) => {
+      // Across concurrent requests too: a double click must not pay for two Briefings.
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`studio:${notebookId}`}))`);
+      const [processing] = await tx
+        .select({ id: studioOutputs.id })
+        .from(studioOutputs)
+        .where(
+          and(
+            eq(studioOutputs.notebookId, notebookId),
+            eq(studioOutputs.status, 'processing'),
+            gt(studioOutputs.createdAt, new Date(Date.now() - PROCESSING_STALE_AFTER_MS)),
+          ),
+        )
+        .limit(1);
+      if (processing) return null;
+      const [row] = await tx
+        .insert(studioOutputs)
+        .values({ notebookId, kind: 'briefing', status: 'processing' })
+        .returning();
+      if (!row) throw new Error('Studio output insert returned no row');
+      return toStudioOutput(row);
+    })
+    .catch(async (error: unknown) => {
+      await releaseUsage(reservation.reservationId);
+      throw error;
+    });
+  if (!output) {
+    await releaseUsage(reservation.reservationId);
+    return { ok: false, error: 'studio_busy' };
+  }
   logger().info({ event: 'studio.started', outputId: output.id });
-  return { ok: true, output };
+  return { ok: true, output, reservationId: reservation.reservationId };
 }
 
 /**
  * Generates a started Briefing and stores it as `complete` or `failed`; the
- * call is recorded in the usage ledger either way. Skips an output that is
+ * call is recorded in the usage ledger either way and its reservation released. Skips an output that is
  * gone or no longer `processing`. Never throws: it runs after the response.
  */
-export async function runBriefing(visitorId: string, outputId: string): Promise<void> {
+export async function runBriefing(
+  visitorId: string,
+  outputId: string,
+  reservationId: string,
+): Promise<void> {
   try {
     const [row] = await db()
       .select({ notebookId: studioOutputs.notebookId, status: studioOutputs.status })
@@ -95,6 +115,10 @@ export async function runBriefing(visitorId: string, outputId: string): Promise<
   } catch (error) {
     logger().error({ event: 'studio.run_failed', outputId, err: error });
     await finish(outputId, failed('llm_failed')).catch(() => undefined);
+  } finally {
+    await releaseUsage(reservationId).catch((error: unknown) =>
+      logger().error({ event: 'usage.release_failed', err: error }),
+    );
   }
 }
 

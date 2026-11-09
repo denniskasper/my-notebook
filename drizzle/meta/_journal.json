@@ -43,6 +43,13 @@
       "when": 1794069544006,
       "tag": "0005_agent_run_cost",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794172530325,
+      "tag": "0006_usage_reservations",
+      "breakpoints": true
     }
   ]
 }
