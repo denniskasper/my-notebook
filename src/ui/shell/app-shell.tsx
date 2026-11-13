@@ -9,7 +9,8 @@ import { cn } from '@/ui/cn';
 import { strings } from '@/ui/strings';
 
 import { Drawer, type DrawerFocus } from './drawer';
-import { DrawerResizeHandle, drawerWidthStyle, useDrawerWidth } from './drawer-resize';
+import { PanelResizeHandle, panelWidthStyle, usePanelWidth } from './panel-resize';
+import { DRAWER_WIDTH, SIDEBAR_WIDTH } from './panel-width';
 
 type Props = {
   sidebar: ReactNode;
@@ -50,22 +51,32 @@ export function AppShell({ sidebar, header, children, drawer, banner }: Props) {
     }
   }
   const drawerVisible = drawerOpen ?? 'default';
-  const drawerWidth = useDrawerWidth();
+  const drawerWidth = usePanelWidth(DRAWER_WIDTH);
   const drawerId = useId();
+  const sidebarWidth = usePanelWidth(SIDEBAR_WIDTH);
+  const sidebarId = useId();
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden">
       {banner}
       <div className="flex min-h-0 flex-1">
         <aside
+          id={sidebarId}
           aria-label={strings.sidebar.label}
+          style={panelWidthStyle(sidebarWidth)}
           className={cn(
-            'w-[250px] shrink-0 flex-col border-r border-line bg-panel',
+            'w-[250px] shrink-0 flex-col border-r border-line bg-panel md:w-(--sidebar-w)',
             sidebarOpen
               ? 'fixed inset-y-0 left-0 z-40 flex shadow-[0_0_40px_rgb(0_0_0/0.5)]'
-              : 'hidden md:flex',
+              : 'hidden md:relative md:flex',
           )}
         >
+          <PanelResizeHandle
+            {...sidebarWidth}
+            label={strings.sidebar.resize}
+            controls={sidebarId}
+            className="md:block"
+          />
           {sidebar}
         </aside>
         {sidebarOpen && (
@@ -106,7 +117,7 @@ export function AppShell({ sidebar, header, children, drawer, banner }: Props) {
           <aside
             id={drawerId}
             aria-label={strings.drawer.label}
-            style={drawerWidthStyle(drawerWidth.width)}
+            style={panelWidthStyle(drawerWidth)}
             className={cn(
               'w-[460px] max-w-full shrink-0 flex-col border-l border-line bg-panel lg:relative lg:w-(--drawer-w)',
               drawerVisible === 'default' && 'hidden lg:flex',
@@ -115,7 +126,12 @@ export function AppShell({ sidebar, header, children, drawer, banner }: Props) {
               drawerVisible === false && 'hidden',
             )}
           >
-            <DrawerResizeHandle {...drawerWidth} controls={drawerId} />
+            <PanelResizeHandle
+              {...drawerWidth}
+              label={strings.drawer.resize}
+              controls={drawerId}
+              className="lg:block"
+            />
             <Drawer
               reader={drawer.reader}
               studio={drawer.studio}
