@@ -20,6 +20,8 @@ Every merge to `main` that changes code is tested, scanned, built into an image 
 
 [![System map: agent server, GitHub, self-hosted server and Anthropic API](docs/infrastructure.svg)](docs/infrastructure.md)
 
+The inside of the app (modules, the LLM boundary, the Budget guard and how a cited answer streams) is drawn in [docs/architecture.md](docs/architecture.md).
+
 ## Local development
 
 Requires Node 24, pnpm (via corepack) and Docker.
