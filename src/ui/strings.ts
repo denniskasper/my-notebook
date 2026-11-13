@@ -206,6 +206,7 @@ export const strings = {
     label: 'Seitenbereich',
     toggle: 'Seitenbereich umschalten',
     close: 'Seitenbereich schließen',
+    resize: 'Seitenbereich-Breite ändern',
     tabs: { sources: 'Quellen', studio: 'Studio', notes: 'Notizen' },
     sourcesEmpty:
       'Keine Quelle geöffnet. Klicke auf ein Zitat in einer Antwort oder auf eine Quelle in der Seitenleiste.',

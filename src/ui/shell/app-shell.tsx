@@ -2,13 +2,14 @@
 
 import { Menu, PanelRight, X } from 'lucide-react';
 import { usePathname } from 'next/navigation';
-import { useState, type ReactNode } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 
 import { Button } from '@/ui/components/button';
 import { cn } from '@/ui/cn';
 import { strings } from '@/ui/strings';
 
 import { Drawer, type DrawerFocus } from './drawer';
+import { DrawerResizeHandle, drawerWidthStyle, useDrawerWidth } from './drawer-resize';
 
 type Props = {
   sidebar: ReactNode;
@@ -49,6 +50,8 @@ export function AppShell({ sidebar, header, children, drawer, banner }: Props) {
     }
   }
   const drawerVisible = drawerOpen ?? 'default';
+  const drawerWidth = useDrawerWidth();
+  const drawerId = useId();
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden">
@@ -101,15 +104,18 @@ export function AppShell({ sidebar, header, children, drawer, banner }: Props) {
 
         {drawer && (
           <aside
+            id={drawerId}
             aria-label={strings.drawer.label}
+            style={drawerWidthStyle(drawerWidth.width)}
             className={cn(
-              'w-[460px] max-w-full shrink-0 flex-col border-l border-line bg-panel',
+              'w-[460px] max-w-full shrink-0 flex-col border-l border-line bg-panel lg:relative lg:w-(--drawer-w)',
               drawerVisible === 'default' && 'hidden lg:flex',
               drawerVisible === true &&
                 'flex max-lg:fixed max-lg:inset-y-0 max-lg:right-0 max-lg:z-40 max-lg:shadow-[0_0_40px_rgb(0_0_0/0.5)]',
               drawerVisible === false && 'hidden',
             )}
           >
+            <DrawerResizeHandle {...drawerWidth} controls={drawerId} />
             <Drawer
               reader={drawer.reader}
               studio={drawer.studio}
