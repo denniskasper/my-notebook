@@ -13,6 +13,11 @@ Every deploy is a start-first Swarm update with `FailureAction: rollback` and a 
 
 Then fix forward with a new PR, or roll back by hand if `main` stays broken for a while.
 
+### Demonstrated on 2026-11-13
+
+1. `6259a80` (`test: demonstrate automatic rollback`, #94) made `/api/health` answer 503 when the real LLM is configured, so CI stayed green but the new container never became healthy in production. Swarm rolled back; production kept reporting `7fdde22` the whole time, and the `deploy` job failed after 5 minutes with "Production did not report 6259a80… (last seen: 7fdde22…)".
+2. `00c3676` (`revert: demonstrate automatic rollback`, #96) reverted it; its `deploy` job went green once production reported `00c3676`.
+
 The automatic rollback only catches releases that fail their health check. A release that is healthy but wrong (a broken page, a bad answer) needs the manual rollback below.
 
 ## Manual: redeploy an older image
