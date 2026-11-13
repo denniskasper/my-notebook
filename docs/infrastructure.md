@@ -1,6 +1,6 @@
 # Infrastructure
 
-How a change travels from an issue to production, where the network boundaries sit, and what happens when a release is unhealthy. Decisions behind it: [ADR 0003](adr/0003-ci-built-image-deployed-to-dokploy-with-rollback.md).
+How a change travels from an issue to production, where the network boundaries sit, and what happens when a release is unhealthy. Decisions behind it: [ADR 0003](adr/0003-ci-built-image-deployed-to-dokploy-with-rollback.md). What runs inside the app is in [architecture.md](architecture.md).
 
 ## System map
 
