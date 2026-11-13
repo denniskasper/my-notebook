@@ -42,6 +42,7 @@ export const strings = {
     label: 'Notebooks',
     versionLink: 'Diesen Stand auf GitHub ansehen',
     heading: 'Notebooks',
+    resize: 'Notebook-Leiste-Breite ändern',
     newNotebook: 'Neues Notebook',
     addSource: 'Quelle hinzufügen',
     empty: 'Noch keine Notebooks. Leg dein erstes an.',
