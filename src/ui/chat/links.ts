@@ -6,7 +6,7 @@ export type LinkSegment =
 // An http(s) address up to the next space; trailing punctuation belongs to the sentence.
 const URL_PATTERN = /https?:\/\/[^\s<>"]+/g;
 const TRAILING = /[.,;:!?)\]}'"“”‘’]+$/;
-// Markdown bold the Agent sometimes writes despite its prompt; shown bold, never as asterisks.
+// Markdown bold the model sometimes writes (Chat and Agent); shown bold, never as asterisks.
 const STRONG_PATTERN = /\*\*(?!\s)([^*\n]+?)(?<!\s)\*\*/g;
 
 /**
