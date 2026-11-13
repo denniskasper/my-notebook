@@ -111,7 +111,7 @@ function Answer({
               <span key={index}>
                 <TextWithChips
                   text={part.text}
-                  renderText={(text) => (agent ? <TextWithLinks text={text} /> : text)}
+                  renderText={(text) => <TextWithLinks text={text} links={agent} />}
                 >
                   {part.citations.map((citation, citationIndex) => {
                     const n = (firstNumber[index] ?? 1) + citationIndex;
@@ -151,10 +151,12 @@ function Answer({
 }
 
 /**
- * Agent text with the web pages it read but did not add as plain links: quiet
- * and underlined in the text's own colour, so they never pass for a Citation.
+ * Answer text with Markdown bold shown as bold, never as asterisks. In Agent
+ * answers (`links`), the web pages it read but did not add show as plain links:
+ * quiet and underlined in the text's own colour, so they never pass for a
+ * Citation. Chat answers keep addresses as plain text.
  */
-function TextWithLinks({ text }: { text: string }) {
+function TextWithLinks({ text, links }: { text: string; links: boolean }) {
   return splitLinks(text).map((segment, index) =>
     segment.type === 'text' ? (
       segment.text
@@ -162,6 +164,8 @@ function TextWithLinks({ text }: { text: string }) {
       <strong key={index} className="font-semibold">
         {segment.text}
       </strong>
+    ) : !links ? (
+      segment.href
     ) : (
       <a
         key={index}
